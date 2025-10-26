@@ -652,7 +652,28 @@ bool AIPilot::performSafetyChecks() {
         return false;
     }
     
-    return true;
+    // Fuel warnings at 20% and 10%
+    double fuelPercent = (currentState_.fuelQuantity / aircraftConfig_.fuelCapacity) * 100.0;
+    if (fuelPercent < 20.0 && fuelPercent > 19.0) {
+        log("WARNING: Fuel at 20%");
+    }
+    if (fuelPercent < 10.0 && fuelPercent > 9.0) {
+        log("CAUTION: Fuel at 10% - diversion recommended");
+    }
+    
+    // Check terrain clearance
+    if (!currentState_.onGround) {
+        if (!checkTerrainClearance()) {
+            log("WARNING: Terrain clearance issue");
+        }
+    }
+    
+    // Check weather suitability
+    if (!isWeatherSuitable()) {
+        handleBadWeather();
+    }
+    
+    return safe;
 }
 
 void AIPilot::handleLowFuel() {
@@ -689,33 +710,115 @@ void AIPilot::handleLowFuel() {
 void AIPilot::handleBadWeather() {
     log("WARNING: Bad weather detected");
     
-    // Weather assessment and decision making
-    // TODO: Get actual weather data from SimConnect
+    // Get current weather conditions
+    WeatherConditions weather = assessWeather();
     
     // Decision tree for weather
     log("Assessing weather severity and options");
     
-    // Option 1: Continue if conditions are acceptable
-    // Option 2: Divert to alternate
-    // Option 3: Return to departure
-    // Option 4: Hold and wait for improvement
-    
-    // For now, implement basic weather avoidance
-    log("Implementing weather avoidance procedures");
-    
-    // Increase altitude if icing conditions
-    if (currentState_.position.altitude < 10000.0) {
-        log("Climbing to avoid weather");
+    // Check for severe weather conditions
+    if (weather.icing && currentState_.position.altitude < 10000.0) {
+        log("Icing conditions detected - climbing to avoid");
         double weatherAvoidanceAlt = std::min(currentState_.position.altitude + 2000.0, 
                                              aircraftConfig_.serviceceiling * 0.9);
         systems_->setAltitude(weatherAvoidanceAlt);
     }
     
-    // Consider diversion
-    if (atc_) {
-        log("Requesting weather information from ATC");
-        // ATC interaction would happen through SimConnect
+    if (weather.visibility < 3.0 && currentPhase_ == FlightPhase::APPROACH) {
+        log("Low visibility - consider missed approach");
+        // Could trigger missed approach procedure
     }
+    
+    if (weather.turbulence) {
+        log("Turbulence detected - reducing speed for comfort");
+        double turbulenceSpeed = aircraftConfig_.cruiseSpeed * 0.85;
+        systems_->setSpeed(turbulenceSpeed);
+    }
+    
+    // Consider diversion if weather is too severe
+    if (!isWeatherSuitable()) {
+        log("Weather below minimums - considering diversion");
+        if (atc_) {
+            log("Requesting weather information from ATC");
+        }
+    }
+}
+
+bool AIPilot::checkTerrainClearance() {
+    // Check if current altitude provides adequate terrain clearance
+    double terrainElevation = getTerrainElevation(currentState_.position);
+    double agl = currentState_.position.altitude - terrainElevation;
+    
+    // Minimum safe altitude is typically 1000 ft AGL in mountainous areas,
+    // 500 ft AGL elsewhere
+    double minimumClearance = 1000.0;
+    
+    if (agl < minimumClearance) {
+        log("WARNING: Low terrain clearance - " + std::to_string(agl) + " ft AGL");
+        
+        // Take corrective action
+        if (agl < minimumClearance * 0.5) {
+            log("CRITICAL: Terrain proximity warning - climbing immediately");
+            systems_->enableAutopilot(false);
+            systems_->setPitch(0.2); // Pitch up
+            systems_->setThrottle(1.0); // Full power
+        }
+        
+        return false;
+    }
+    
+    return true;
+}
+
+double AIPilot::getTerrainElevation(const Position& pos) {
+    // TODO: Integrate with actual terrain database
+    // For now, return a conservative estimate based on position
+    // This would typically come from a terrain elevation database
+    
+    // Simplified terrain elevation (sea level default)
+    double elevation = 0.0;
+    
+    // In a real implementation, this would:
+    // 1. Query a terrain database (e.g., SRTM data)
+    // 2. Use the navdata reader for terrain information
+    // 3. Interpolate between known elevation points
+    
+    return elevation;
+}
+
+WeatherConditions AIPilot::assessWeather() {
+    WeatherConditions weather;
+    
+    // TODO: Get actual weather from SimConnect
+    // For now, return default conditions
+    weather.windSpeed = 10.0;
+    weather.windDirection = 270.0;
+    weather.visibility = 10.0;
+    weather.cloudBase = 3000.0;
+    weather.temperature = 15.0;
+    weather.icing = false;
+    weather.turbulence = false;
+    weather.precipitation = false;
+    
+    // In a real implementation, this would:
+    // 1. Query SimConnect for current weather
+    // 2. Parse METAR data if available
+    // 3. Check for hazardous conditions
+    
+    return weather;
+}
+
+bool AIPilot::isWeatherSuitable() {
+    WeatherConditions weather = assessWeather();
+    
+    // Check VFR minimums (simplified)
+    bool vfrMinimums = (weather.visibility >= 3.0 && weather.cloudBase >= 1000.0);
+    
+    // Check for hazardous conditions
+    bool safe = !weather.icing && weather.windSpeed < 35.0;
+    
+    // For IFR operations, different minimums would apply
+    return vfrMinimums && safe;
 }
 
 void AIPilot::log(const std::string& message) {

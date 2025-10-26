@@ -64,6 +64,9 @@ endif()
 if(BUILD_EXAMPLES)
     add_executable(aicopilot_example aicopilot/examples/main_example.cpp)
     target_link_libraries(aicopilot_example aicopilot)
+    
+    add_executable(aicopilot_advanced aicopilot/examples/advanced_example.cpp)
+    target_link_libraries(aicopilot_advanced aicopilot)
 endif()
 
 # Build tests
@@ -83,7 +86,7 @@ install(FILES ${AICOPILOT_HEADERS}
 )
 
 if(BUILD_EXAMPLES)
-    install(TARGETS aicopilot_example
+    install(TARGETS aicopilot_example aicopilot_advanced
         RUNTIME DESTINATION bin
     )
 endif()

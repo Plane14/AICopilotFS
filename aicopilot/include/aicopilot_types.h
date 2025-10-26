@@ -136,6 +136,25 @@ struct FlightPlan {
     double cruiseSpeed;
 };
 
+// Terrain and obstacle awareness
+struct TerrainPoint {
+    Position position;
+    double elevation;  // feet MSL
+    std::string type;  // terrain, obstacle, etc.
+};
+
+// Weather information
+struct WeatherConditions {
+    double windSpeed;      // knots
+    double windDirection;  // degrees
+    double visibility;     // statute miles
+    double cloudBase;      // feet AGL
+    double temperature;    // Celsius
+    bool icing;
+    bool turbulence;
+    bool precipitation;
+};
+
 } // namespace AICopilot
 
 #endif // AICOPILOT_TYPES_H

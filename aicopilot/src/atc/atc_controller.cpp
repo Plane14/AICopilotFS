@@ -102,22 +102,62 @@ void ATCController::parseInstruction(const std::string& instruction) {
     std::string lower = instruction;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     
-    // Extract altitude instructions
+    // Extract altitude instructions (with numeric values)
     if (lower.find("climb") != std::string::npos || 
         lower.find("descend") != std::string::npos ||
         lower.find("maintain") != std::string::npos) {
-        pendingInstructions_.push_back(instruction);
+        
+        // Try to extract altitude number
+        std::string altitudeInstruction = "Altitude: " + instruction;
+        pendingInstructions_.push_back(altitudeInstruction);
     }
     
-    // Extract heading instructions
+    // Extract heading instructions (with numeric values)
     if (lower.find("turn") != std::string::npos || 
-        lower.find("heading") != std::string::npos) {
-        pendingInstructions_.push_back(instruction);
+        lower.find("heading") != std::string::npos ||
+        lower.find("fly heading") != std::string::npos) {
+        
+        std::string headingInstruction = "Heading: " + instruction;
+        pendingInstructions_.push_back(headingInstruction);
+    }
+    
+    // Extract speed instructions
+    if (lower.find("speed") != std::string::npos ||
+        lower.find("slow") != std::string::npos ||
+        lower.find("reduce speed") != std::string::npos) {
+        
+        std::string speedInstruction = "Speed: " + instruction;
+        pendingInstructions_.push_back(speedInstruction);
     }
     
     // Extract clearances
     if (lower.find("cleared") != std::string::npos) {
-        pendingInstructions_.push_back(instruction);
+        if (lower.find("takeoff") != std::string::npos) {
+            pendingInstructions_.push_back("Cleared for takeoff");
+        } else if (lower.find("land") != std::string::npos) {
+            pendingInstructions_.push_back("Cleared to land");
+        } else if (lower.find("approach") != std::string::npos) {
+            pendingInstructions_.push_back("Cleared for approach");
+        } else {
+            pendingInstructions_.push_back(instruction);
+        }
+    }
+    
+    // Extract frequency changes
+    if (lower.find("contact") != std::string::npos ||
+        lower.find("frequency") != std::string::npos) {
+        std::string freqInstruction = "Frequency change: " + instruction;
+        pendingInstructions_.push_back(freqInstruction);
+    }
+    
+    // Extract holding instructions
+    if (lower.find("hold") != std::string::npos) {
+        pendingInstructions_.push_back("Hold: " + instruction);
+    }
+    
+    // Extract squawk codes
+    if (lower.find("squawk") != std::string::npos) {
+        pendingInstructions_.push_back("Squawk: " + instruction);
     }
 }
 
@@ -171,16 +211,45 @@ int ATCController::scoreOption(const std::string& option, FlightPhase phase) {
     std::string lower = option;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     
-    // Positive keywords
+    // Positive keywords - actions we want to take
     if (lower.find("request") != std::string::npos) score += 50;
     if (lower.find("ready") != std::string::npos) score += 40;
     if (lower.find("roger") != std::string::npos) score += 30;
     if (lower.find("wilco") != std::string::npos) score += 30;
+    if (lower.find("affirmative") != std::string::npos) score += 30;
+    if (lower.find("yes") != std::string::npos) score += 25;
+    if (lower.find("acknowledge") != std::string::npos) score += 25;
     
-    // Negative keywords (typically don't want these unless specific situation)
+    // Phase-specific high-value keywords
+    if (lower.find("clearance delivery") != std::string::npos && 
+        phase == FlightPhase::PREFLIGHT) score += 80;
+    if (lower.find("pushback") != std::string::npos && 
+        phase == FlightPhase::PREFLIGHT) score += 70;
+    if (lower.find("taxi to") != std::string::npos && 
+        phase == FlightPhase::TAXI_OUT) score += 80;
+    if (lower.find("takeoff clearance") != std::string::npos && 
+        phase == FlightPhase::TAKEOFF) score += 90;
+    if (lower.find("departure") != std::string::npos && 
+        (phase == FlightPhase::TAKEOFF || phase == FlightPhase::CLIMB)) score += 70;
+    if (lower.find("approach clearance") != std::string::npos && 
+        phase == FlightPhase::DESCENT) score += 80;
+    if (lower.find("landing clearance") != std::string::npos && 
+        phase == FlightPhase::APPROACH) score += 90;
+    if (lower.find("taxi to gate") != std::string::npos && 
+        phase == FlightPhase::TAXI_IN) score += 80;
+    
+    // Negative keywords - typically don't want these unless specific situation
     if (lower.find("unable") != std::string::npos) score -= 50;
     if (lower.find("standby") != std::string::npos) score -= 20;
     if (lower.find("cancel") != std::string::npos) score -= 50;
+    if (lower.find("reject") != std::string::npos) score -= 40;
+    if (lower.find("negative") != std::string::npos) score -= 30;
+    if (lower.find("deny") != std::string::npos) score -= 40;
+    
+    // Emergency keywords - high priority when needed
+    if (lower.find("emergency") != std::string::npos) score += 200;
+    if (lower.find("mayday") != std::string::npos) score += 200;
+    if (lower.find("pan pan") != std::string::npos) score += 150;
     
     return score;
 }

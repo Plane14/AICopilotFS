@@ -112,6 +112,14 @@ private:
     void handleFire();
     void handleLossOfControl();
     
+    // Terrain awareness
+    bool checkTerrainClearance();
+    double getTerrainElevation(const Position& pos);
+    
+    // Weather assessment
+    WeatherConditions assessWeather();
+    bool isWeatherSuitable();
+    
     // Logging
     void log(const std::string& message);
 };

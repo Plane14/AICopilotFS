@@ -1,0 +1,62 @@
+# Build directories
+build/
+bin/
+lib/
+cmake-build-*/
+
+# Compiled Object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Qt
+*.pro.user
+*.autosave
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+
+# Dependencies
+node_modules/
+vendor/

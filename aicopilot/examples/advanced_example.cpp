@@ -33,16 +33,18 @@ void printBanner() {
 void printHelp() {
     std::cout << "\nUsage: advanced_example [options] [aircraft.cfg] [flightplan.pln]\n";
     std::cout << "\nOptions:\n";
-    std::cout << "  -h, --help           Show this help message\n";
-    std::cout << "  -s, --simulator TYPE Simulator type (msfs2024, p3dv6)\n";
-    std::cout << "  -v, --verbose        Enable verbose logging\n";
-    std::cout << "  --ollama             Enable Ollama AI for ATC menu selection\n";
-    std::cout << "  --ollama-host HOST   Ollama server host (default: http://localhost:11434)\n";
-    std::cout << "  --ollama-model MODEL Ollama model to use (default: llama2)\n";
+    std::cout << "  -h, --help            Show this help message\n";
+    std::cout << "  -s, --simulator TYPE  Simulator type (msfs2024, p3dv6)\n";
+    std::cout << "  -v, --verbose         Enable verbose logging\n";
+    std::cout << "  --ollama              Enable Ollama AI for ATC menu selection\n";
+    std::cout << "  --ollama-host HOST    Ollama server host (default: http://localhost:11434)\n";
+    std::cout << "  --ollama-model MODEL  Ollama model to use (default: llama2)\n";
+    std::cout << "  --ollama-api-key KEY  Ollama API key (for enterprise/cloud deployments)\n";
     std::cout << "\nExamples:\n";
     std::cout << "  advanced_example aircraft.cfg flightplan.pln\n";
     std::cout << "  advanced_example -s msfs2024 cessna172.cfg KSEA_KPDX.pln\n";
     std::cout << "  advanced_example --ollama --ollama-model llama3 aircraft.cfg plan.pln\n";
+    std::cout << "  advanced_example --ollama --ollama-api-key abc123 aircraft.cfg plan.pln\n";
     std::cout << std::endl;
 }
 
@@ -103,6 +105,7 @@ int main(int argc, char* argv[]) {
     bool enableOllama = false;
     std::string ollamaHost = "http://localhost:11434";
     std::string ollamaModel = "llama2";
+    std::string ollamaApiKey;
     
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -135,6 +138,11 @@ int main(int argc, char* argv[]) {
         else if (arg == "--ollama-model") {
             if (i + 1 < argc) {
                 ollamaModel = argv[++i];
+            }
+        }
+        else if (arg == "--ollama-api-key") {
+            if (i + 1 < argc) {
+                ollamaApiKey = argv[++i];
             }
         }
         else if (configPath.empty()) {
@@ -204,6 +212,12 @@ int main(int argc, char* argv[]) {
     // Enable Ollama after ATC controller is initialized
     if (enableOllama) {
         std::cout << "[OLLAMA] Enabling Ollama AI for ATC menu selection..." << std::endl;
+        
+        // Set API key if provided
+        if (!ollamaApiKey.empty()) {
+            pilot.setOllamaApiKey(ollamaApiKey);
+        }
+        
         pilot.enableOllamaATC(true, ollamaHost);
         pilot.setOllamaModel(ollamaModel);
         

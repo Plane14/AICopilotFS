@@ -61,6 +61,9 @@ public:
     // Set Ollama model
     void setOllamaModel(const std::string& model);
     
+    // Set Ollama API key (optional, for enterprise/cloud deployments)
+    void setOllamaApiKey(const std::string& apiKey);
+    
 private:
     std::shared_ptr<SimConnectWrapper> simConnect_;
     std::unique_ptr<OllamaClient> ollamaClient_;

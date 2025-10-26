@@ -28,6 +28,9 @@ public:
     // Connect to Ollama server
     bool connect(const std::string& host = "http://localhost:11434");
     
+    // Set API key for authentication (optional, for enterprise/cloud Ollama deployments)
+    void setApiKey(const std::string& apiKey);
+    
     // Check if Ollama is available
     bool isAvailable() const;
     
@@ -73,6 +76,7 @@ private:
     
     std::string host_;
     std::string model_;
+    std::string apiKey_;
     bool available_;
     
     // Parse LLM response to extract option number

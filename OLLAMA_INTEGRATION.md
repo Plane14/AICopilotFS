@@ -75,6 +75,9 @@ Enable Ollama integration with the `--ollama` flag:
 
 # Custom Ollama host (if running remotely)
 ./aicopilot_advanced --ollama --ollama-host http://192.168.1.100:11434 aircraft.cfg plan.pln
+
+# With API key (for enterprise/cloud Ollama deployments)
+./aicopilot_advanced --ollama --ollama-api-key your_api_key aircraft.cfg plan.pln
 ```
 
 ### Programmatic API
@@ -91,6 +94,44 @@ pilot.startAutonomousFlight();
 // Enable Ollama (after startAutonomousFlight)
 pilot.enableOllamaATC(true, "http://localhost:11434");
 pilot.setOllamaModel("llama2");
+
+// Set API key if needed (optional, for enterprise/cloud deployments)
+pilot.setOllamaApiKey("your_api_key_here");
+
+// Check if enabled successfully
+if (pilot.isOllamaEnabled()) {
+    std::cout << "Ollama AI enabled!" << std::endl;
+}
+```
+
+## API Key Authentication
+
+While local Ollama installations typically don't require authentication, enterprise or cloud deployments may use API keys. The AI Copilot FS supports optional API key authentication:
+
+### When to Use API Keys
+
+- **Enterprise Ollama deployments** with authentication enabled
+- **Cloud-hosted Ollama** instances requiring authorization
+- **Multi-tenant environments** with API key-based access control
+- **Custom Ollama servers** with authentication middleware
+
+### Setting the API Key
+
+**Command Line:**
+```bash
+./aicopilot_advanced --ollama --ollama-api-key "your_api_key_here"
+```
+
+**Programmatic:**
+```cpp
+pilot.setOllamaApiKey("your_api_key_here");
+pilot.enableOllamaATC(true, "http://your-ollama-server.com");
+```
+
+**Note:** The API key is sent as a Bearer token in the `Authorization` header:
+```
+Authorization: Bearer your_api_key_here
+```
 
 // Check if enabled successfully
 if (pilot.isOllamaEnabled()) {

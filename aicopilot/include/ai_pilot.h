@@ -66,6 +66,7 @@ public:
     // Ollama AI integration for ATC
     void enableOllamaATC(bool enable, const std::string& host = "http://localhost:11434");
     void setOllamaModel(const std::string& model);
+    void setOllamaApiKey(const std::string& apiKey);
     bool isOllamaEnabled() const;
     
 private:

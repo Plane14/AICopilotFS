@@ -103,6 +103,12 @@ void ATCController::setOllamaModel(const std::string& model) {
     }
 }
 
+void ATCController::setOllamaApiKey(const std::string& apiKey) {
+    if (ollamaClient_) {
+        ollamaClient_->setApiKey(apiKey);
+    }
+}
+
 std::string ATCController::getFlightPhaseString() const {
     switch (currentPhase_) {
         case FlightPhase::PREFLIGHT: return "PREFLIGHT";

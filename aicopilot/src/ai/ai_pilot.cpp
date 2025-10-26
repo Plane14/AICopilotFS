@@ -266,6 +266,14 @@ void AIPilot::setOllamaModel(const std::string& model) {
     }
 }
 
+void AIPilot::setOllamaApiKey(const std::string& apiKey) {
+    if (atc_) {
+        atc_->setOllamaApiKey(apiKey);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
 bool AIPilot::isOllamaEnabled() const {
     if (atc_) {
         return atc_->isOllamaEnabled();

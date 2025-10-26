@@ -62,12 +62,27 @@ bool OllamaClient::connect(const std::string& host) {
     std::string url = host_ + "/api/tags";
     std::string response;
     
+    // Setup headers for connection test
+    struct curl_slist* headers = nullptr;
+    if (!apiKey_.empty()) {
+        std::string authHeader = "Authorization: Bearer " + apiKey_;
+        headers = curl_slist_append(headers, authHeader.c_str());
+    }
+    
     curl_easy_setopt(pImpl_->curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(pImpl_->curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(pImpl_->curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(pImpl_->curl, CURLOPT_TIMEOUT, 5L);
     
+    if (headers) {
+        curl_easy_setopt(pImpl_->curl, CURLOPT_HTTPHEADER, headers);
+    }
+    
     CURLcode res = curl_easy_perform(pImpl_->curl);
+    
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
     
     if (res != CURLE_OK) {
         std::cerr << "[Ollama] Connection failed: " << curl_easy_strerror(res) << std::endl;
@@ -82,6 +97,13 @@ bool OllamaClient::connect(const std::string& host) {
 
 bool OllamaClient::isAvailable() const {
     return available_;
+}
+
+void OllamaClient::setApiKey(const std::string& apiKey) {
+    apiKey_ = apiKey;
+    if (!apiKey_.empty()) {
+        std::cout << "[Ollama] API key configured" << std::endl;
+    }
 }
 
 void OllamaClient::setModel(const std::string& model) {
@@ -141,6 +163,12 @@ std::string OllamaClient::sendRequest(const std::string& prompt) const {
     
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
+    
+    // Add API key to headers if configured
+    if (!apiKey_.empty()) {
+        std::string authHeader = "Authorization: Bearer " + apiKey_;
+        headers = curl_slist_append(headers, authHeader.c_str());
+    }
     
     curl_easy_setopt(pImpl_->curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(pImpl_->curl, CURLOPT_HTTPHEADER, headers);

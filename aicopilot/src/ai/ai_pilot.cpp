@@ -250,6 +250,29 @@ void AIPilot::setManualOverride(bool override) {
     log(override ? "Manual override ENABLED" : "Manual override DISABLED");
 }
 
+void AIPilot::enableOllamaATC(bool enable, const std::string& host) {
+    if (atc_) {
+        atc_->enableOllama(enable, host);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
+void AIPilot::setOllamaModel(const std::string& model) {
+    if (atc_) {
+        atc_->setOllamaModel(model);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
+bool AIPilot::isOllamaEnabled() const {
+    if (atc_) {
+        return atc_->isOllamaEnabled();
+    }
+    return false;
+}
+
 void AIPilot::updateFlightPhase() {
     // Determine flight phase based on current state
     

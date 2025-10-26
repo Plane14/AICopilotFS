@@ -12,6 +12,7 @@
 
 #include "aicopilot_types.h"
 #include "simconnect_wrapper.h"
+#include "ollama_client.h"
 #include <memory>
 #include <queue>
 
@@ -20,6 +21,7 @@ namespace AICopilot {
 /**
  * ATC interaction controller
  * Handles communication with ATC, parses instructions, and selects appropriate responses
+ * Supports both rule-based and AI-powered (Ollama) menu selection
  */
 class ATCController {
 public:
@@ -50,17 +52,31 @@ public:
     // Get last ATC clearance
     std::string getLastClearance() const;
     
+    // Enable/disable Ollama AI assistance
+    void enableOllama(bool enable, const std::string& host = "http://localhost:11434");
+    
+    // Check if Ollama is available and enabled
+    bool isOllamaEnabled() const;
+    
+    // Set Ollama model
+    void setOllamaModel(const std::string& model);
+    
 private:
     std::shared_ptr<SimConnectWrapper> simConnect_;
+    std::unique_ptr<OllamaClient> ollamaClient_;
     FlightPhase currentPhase_;
     FlightPlan flightPlan_;
     std::queue<ATCMessage> messageQueue_;
     std::vector<std::string> pendingInstructions_;
     std::string lastClearance_;
     bool waitingForResponse_;
+    bool ollamaEnabled_;
     
     // AI decision making for ATC menu selection
     int selectBestMenuOption(const ATCMessage& message);
+    
+    // Rule-based menu selection (fallback)
+    int selectBestMenuOptionRuleBased(const ATCMessage& message);
     
     // Parse ATC instruction
     void parseInstruction(const std::string& instruction);
@@ -68,6 +84,9 @@ private:
     // Context analysis
     bool isRelevantForPhase(const std::string& option, FlightPhase phase);
     int scoreOption(const std::string& option, FlightPhase phase);
+    
+    // Get flight phase as string
+    std::string getFlightPhaseString() const;
 };
 
 } // namespace AICopilot

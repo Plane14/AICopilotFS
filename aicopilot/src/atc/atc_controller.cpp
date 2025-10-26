@@ -16,8 +16,10 @@ namespace AICopilot {
 
 ATCController::ATCController(std::shared_ptr<SimConnectWrapper> simConnect)
     : simConnect_(simConnect)
+    , ollamaClient_(std::make_unique<OllamaClient>())
     , currentPhase_(FlightPhase::UNKNOWN)
-    , waitingForResponse_(false) {
+    , waitingForResponse_(false)
+    , ollamaEnabled_(false) {
     
     // Subscribe to ATC messages
     simConnect_->subscribeToATCMessages([this](const ATCMessage& msg) {
@@ -75,10 +77,90 @@ std::string ATCController::getLastClearance() const {
     return lastClearance_;
 }
 
+void ATCController::enableOllama(bool enable, const std::string& host) {
+    if (enable) {
+        std::cout << "[ATC] Enabling Ollama AI assistance..." << std::endl;
+        if (ollamaClient_->connect(host)) {
+            ollamaEnabled_ = true;
+            std::cout << "[ATC] Ollama AI enabled successfully" << std::endl;
+        } else {
+            ollamaEnabled_ = false;
+            std::cout << "[ATC] Failed to enable Ollama, falling back to rule-based selection" << std::endl;
+        }
+    } else {
+        ollamaEnabled_ = false;
+        std::cout << "[ATC] Ollama AI disabled, using rule-based selection" << std::endl;
+    }
+}
+
+bool ATCController::isOllamaEnabled() const {
+    return ollamaEnabled_ && ollamaClient_->isAvailable();
+}
+
+void ATCController::setOllamaModel(const std::string& model) {
+    if (ollamaClient_) {
+        ollamaClient_->setModel(model);
+    }
+}
+
+std::string ATCController::getFlightPhaseString() const {
+    switch (currentPhase_) {
+        case FlightPhase::PREFLIGHT: return "PREFLIGHT";
+        case FlightPhase::TAXI_OUT: return "TAXI OUT";
+        case FlightPhase::TAKEOFF: return "TAKEOFF";
+        case FlightPhase::CLIMB: return "CLIMB";
+        case FlightPhase::CRUISE: return "CRUISE";
+        case FlightPhase::DESCENT: return "DESCENT";
+        case FlightPhase::APPROACH: return "APPROACH";
+        case FlightPhase::LANDING: return "LANDING";
+        case FlightPhase::TAXI_IN: return "TAXI IN";
+        case FlightPhase::SHUTDOWN: return "SHUTDOWN";
+        default: return "UNKNOWN";
+    }
+}
+
 int ATCController::selectBestMenuOption(const ATCMessage& message) {
     if (message.menuOptions.empty()) {
         return -1;
     }
+    
+    // Try Ollama AI first if enabled
+    if (isOllamaEnabled()) {
+        std::cout << "[ATC] Using Ollama AI for menu selection" << std::endl;
+        
+        // Build context string
+        std::ostringstream context;
+        if (!flightPlan_.departure.empty() && !flightPlan_.arrival.empty()) {
+            context << "Flight plan: " << flightPlan_.departure 
+                   << " to " << flightPlan_.arrival;
+        }
+        
+        int ollamaChoice = ollamaClient_->selectATCMenuOption(
+            message.message,
+            message.menuOptions,
+            getFlightPhaseString(),
+            context.str()
+        );
+        
+        if (ollamaChoice >= 0 && ollamaChoice < static_cast<int>(message.menuOptions.size())) {
+            std::cout << "[ATC] Ollama selected option " << ollamaChoice << ": " 
+                     << message.menuOptions[ollamaChoice] << std::endl;
+            return ollamaChoice;
+        } else {
+            std::cout << "[ATC] Ollama failed to select, falling back to rule-based" << std::endl;
+        }
+    }
+    
+    // Fall back to rule-based selection
+    return selectBestMenuOptionRuleBased(message);
+}
+
+int ATCController::selectBestMenuOptionRuleBased(const ATCMessage& message) {
+    if (message.menuOptions.empty()) {
+        return -1;
+    }
+    
+    std::cout << "[ATC] Using rule-based menu selection" << std::endl;
     
     int bestScore = -1;
     int bestOption = 0;

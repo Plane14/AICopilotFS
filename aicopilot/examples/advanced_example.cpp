@@ -36,9 +36,13 @@ void printHelp() {
     std::cout << "  -h, --help           Show this help message\n";
     std::cout << "  -s, --simulator TYPE Simulator type (msfs2024, p3dv6)\n";
     std::cout << "  -v, --verbose        Enable verbose logging\n";
+    std::cout << "  --ollama             Enable Ollama AI for ATC menu selection\n";
+    std::cout << "  --ollama-host HOST   Ollama server host (default: http://localhost:11434)\n";
+    std::cout << "  --ollama-model MODEL Ollama model to use (default: llama2)\n";
     std::cout << "\nExamples:\n";
     std::cout << "  advanced_example aircraft.cfg flightplan.pln\n";
     std::cout << "  advanced_example -s msfs2024 cessna172.cfg KSEA_KPDX.pln\n";
+    std::cout << "  advanced_example --ollama --ollama-model llama3 aircraft.cfg plan.pln\n";
     std::cout << std::endl;
 }
 
@@ -61,6 +65,7 @@ void demonstrateFeatures(AIPilot& pilot) {
     std::cout << "\n✓ Intelligent ATC Interaction" << std::endl;
     std::cout << "  - Context-aware menu selection" << std::endl;
     std::cout << "  - AI-based scoring algorithm" << std::endl;
+    std::cout << "  - Ollama LLM integration (optional)" << std::endl;
     std::cout << "  - Instruction parsing and execution" << std::endl;
     
     std::cout << "\n✓ Comprehensive Safety Systems" << std::endl;
@@ -95,6 +100,9 @@ int main(int argc, char* argv[]) {
     std::string configPath;
     std::string planPath;
     bool verbose = false;
+    bool enableOllama = false;
+    std::string ollamaHost = "http://localhost:11434";
+    std::string ollamaModel = "llama2";
     
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -115,6 +123,19 @@ int main(int argc, char* argv[]) {
         }
         else if (arg == "-v" || arg == "--verbose") {
             verbose = true;
+        }
+        else if (arg == "--ollama") {
+            enableOllama = true;
+        }
+        else if (arg == "--ollama-host") {
+            if (i + 1 < argc) {
+                ollamaHost = argv[++i];
+            }
+        }
+        else if (arg == "--ollama-model") {
+            if (i + 1 < argc) {
+                ollamaModel = argv[++i];
+            }
         }
         else if (configPath.empty()) {
             configPath = arg;
@@ -138,6 +159,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     std::cout << "[OK] Connected successfully" << std::endl;
+    
+    // Enable Ollama if requested
+    if (enableOllama) {
+        std::cout << "\n[INIT] Enabling Ollama AI for ATC menu selection..." << std::endl;
+        std::cout << "[INFO] Ollama host: " << ollamaHost << std::endl;
+        std::cout << "[INFO] Ollama model: " << ollamaModel << std::endl;
+        
+        // Note: ATC controller initialization happens in startAutonomousFlight
+        // We'll set it after that, so store the settings for now
+    }
     
     // Load aircraft configuration (if provided)
     if (!configPath.empty()) {
@@ -167,9 +198,23 @@ int main(int argc, char* argv[]) {
     // Start autonomous flight
     std::cout << "\n[START] Initiating autonomous flight operations..." << std::endl;
     std::cout << "[INFO] AI Copilot is now controlling the aircraft" << std::endl;
-    std::cout << "[INFO] Press Ctrl+C to stop and return control\n" << std::endl;
     
     pilot.startAutonomousFlight();
+    
+    // Enable Ollama after ATC controller is initialized
+    if (enableOllama) {
+        std::cout << "[OLLAMA] Enabling Ollama AI for ATC menu selection..." << std::endl;
+        pilot.enableOllamaATC(true, ollamaHost);
+        pilot.setOllamaModel(ollamaModel);
+        
+        if (pilot.isOllamaEnabled()) {
+            std::cout << "[OLLAMA] ✓ Ollama AI enabled successfully" << std::endl;
+        } else {
+            std::cout << "[OLLAMA] ✗ Failed to enable Ollama, using rule-based selection" << std::endl;
+        }
+    }
+    
+    std::cout << "[INFO] Press Ctrl+C to stop and return control\n" << std::endl;
     
     // Main update loop
     int updateCount = 0;

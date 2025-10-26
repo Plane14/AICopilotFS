@@ -21,6 +21,8 @@ A fully-featured autonomous AI pilot for Microsoft Flight Simulator 2024 (MSFS20
 - **ATC Interaction**
   - Monitor ATC messages and instructions
   - Context-aware menu selection based on flight phase
+  - **Ollama LLM integration** for intelligent AI-powered menu selection (optional)
+  - Rule-based fallback for reliability
   - Automatic response to clearances and instructions
   - Follow ATC guidance for taxi, takeoff, cruise, approach, and landing
 

@@ -63,6 +63,11 @@ public:
     // Manual override (temporarily disable AI)
     void setManualOverride(bool override);
     
+    // Ollama AI integration for ATC
+    void enableOllamaATC(bool enable, const std::string& host = "http://localhost:11434");
+    void setOllamaModel(const std::string& model);
+    bool isOllamaEnabled() const;
+    
 private:
     // Core components
     std::shared_ptr<SimConnectWrapper> simConnect_;

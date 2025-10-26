@@ -11,6 +11,7 @@
 #include <cmath>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 namespace AICopilot {
 
@@ -23,11 +24,145 @@ bool Navigation::loadFlightPlan(const std::string& filePath) {
         return false;
     }
     
-    // TODO: Parse flight plan file format (PLN, FMS, etc.)
-    // This is a simplified implementation
+    // Detect file format by extension
+    std::string ext = filePath.substr(filePath.find_last_of(".") + 1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    
+    if (ext == "pln") {
+        return parsePLN(file);
+    } else if (ext == "fms") {
+        return parseFMS(file);
+    }
     
     activeWaypointIndex_ = 0;
-    return true;
+    return false;
+}
+
+bool Navigation::parsePLN(std::ifstream& file) {
+    // Parse MSFS/P3D PLN format (XML-based)
+    std::string line;
+    FlightPlan plan;
+    Waypoint currentWaypoint;
+    bool inATCWaypoint = false;
+    
+    while (std::getline(file, line)) {
+        // Simple XML parsing for key elements
+        if (line.find("<DepartureLLA>") != std::string::npos) {
+            // Parse departure coordinates
+            size_t start = line.find(">") + 1;
+            size_t end = line.find("<", start);
+            std::string coords = line.substr(start, end - start);
+            // Format: "lat,lon,+altitude"
+            std::istringstream iss(coords);
+            std::string token;
+            std::getline(iss, token, ',');
+            double lat = std::stod(token);
+            std::getline(iss, token, ',');
+            double lon = std::stod(token);
+            std::getline(iss, token);
+            double alt = std::stod(token.substr(1)); // Skip +/-
+            
+            Waypoint wp;
+            wp.id = plan.departure;
+            wp.position.latitude = lat;
+            wp.position.longitude = lon;
+            wp.position.altitude = alt;
+            wp.altitude = alt;
+            wp.type = "AIRPORT";
+            plan.waypoints.push_back(wp);
+        }
+        else if (line.find("<DestinationLLA>") != std::string::npos) {
+            size_t start = line.find(">") + 1;
+            size_t end = line.find("<", start);
+            std::string coords = line.substr(start, end - start);
+            std::istringstream iss(coords);
+            std::string token;
+            std::getline(iss, token, ',');
+            double lat = std::stod(token);
+            std::getline(iss, token, ',');
+            double lon = std::stod(token);
+            std::getline(iss, token);
+            double alt = std::stod(token.substr(1));
+            
+            Waypoint wp;
+            wp.id = plan.arrival;
+            wp.position.latitude = lat;
+            wp.position.longitude = lon;
+            wp.position.altitude = alt;
+            wp.altitude = alt;
+            wp.type = "AIRPORT";
+            plan.waypoints.push_back(wp);
+        }
+        else if (line.find("<CruiseAltitude>") != std::string::npos) {
+            size_t start = line.find(">") + 1;
+            size_t end = line.find("<", start);
+            plan.cruiseAltitude = std::stod(line.substr(start, end - start));
+        }
+        else if (line.find("<Title>") != std::string::npos) {
+            size_t start = line.find(">") + 1;
+            size_t end = line.find("<", start);
+            std::string title = line.substr(start, end - start);
+            // Parse title for departure/arrival (format: "ICAO to ICAO")
+            size_t toPos = title.find(" to ");
+            if (toPos != std::string::npos) {
+                plan.departure = title.substr(0, toPos);
+                plan.arrival = title.substr(toPos + 4);
+            }
+        }
+    }
+    
+    flightPlan_ = plan;
+    activeWaypointIndex_ = 0;
+    return !plan.waypoints.empty();
+}
+
+bool Navigation::parseFMS(std::ifstream& file) {
+    // Parse FMS format (text-based)
+    std::string line;
+    FlightPlan plan;
+    int lineNum = 0;
+    
+    while (std::getline(file, line)) {
+        lineNum++;
+        
+        // Skip header lines
+        if (lineNum <= 2) continue;
+        
+        // Parse waypoint line
+        std::istringstream iss(line);
+        std::string waypointType, id;
+        double lat, lon, alt;
+        
+        if (iss >> waypointType >> id >> lat >> lon >> alt) {
+            Waypoint wp;
+            wp.id = id;
+            wp.position.latitude = lat;
+            wp.position.longitude = lon;
+            wp.position.altitude = alt;
+            wp.altitude = alt;
+            wp.type = waypointType;
+            plan.waypoints.push_back(wp);
+            
+            if (lineNum == 3 && !plan.waypoints.empty()) {
+                plan.departure = plan.waypoints[0].id;
+            }
+        }
+    }
+    
+    if (!plan.waypoints.empty()) {
+        plan.arrival = plan.waypoints.back().id;
+        // Estimate cruise altitude from waypoints
+        plan.cruiseAltitude = 0;
+        for (const auto& wp : plan.waypoints) {
+            if (wp.altitude > plan.cruiseAltitude) {
+                plan.cruiseAltitude = wp.altitude;
+            }
+        }
+    }
+    
+    flightPlan_ = plan;
+    activeWaypointIndex_ = 0;
+    return !plan.waypoints.empty();
 }
 
 FlightPlan Navigation::createDirectPlan(const std::string& departure, 

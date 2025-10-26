@@ -101,6 +101,11 @@ void SimConnectWrapper::setAutopilotSpeed(double speed) {
     // TODO: Set AP_AIRSPEED_HOLD and AP_AIRSPEED_SET
 }
 
+void SimConnectWrapper::setAutopilotVerticalSpeed(double verticalSpeed) {
+    std::cout << "Setting autopilot vertical speed: " << verticalSpeed << " fpm" << std::endl;
+    // TODO: Set AP_VS_HOLD and AP_VS_VAR_SET
+}
+
 void SimConnectWrapper::setAutopilotNav(bool enabled) {
     std::cout << "Setting autopilot NAV: " << (enabled ? "ON" : "OFF") << std::endl;
     // TODO: Set AP_NAV1_HOLD
@@ -112,6 +117,7 @@ void SimConnectWrapper::setAutopilotApproach(bool enabled) {
 }
 
 void SimConnectWrapper::setThrottle(double value) {
+    std::cout << "Setting throttle: " << (value * 100.0) << "%" << std::endl;
     // TODO: Set THROTTLE_SET event
 }
 
@@ -137,16 +143,28 @@ void SimConnectWrapper::setGear(bool down) {
     // TODO: Set GEAR_UP or GEAR_DOWN event
 }
 
+void SimConnectWrapper::setSpoilers(bool deployed) {
+    std::cout << "Setting spoilers: " << (deployed ? "DEPLOYED" : "RETRACTED") << std::endl;
+    // TODO: Set SPOILERS_SET event
+}
+
 void SimConnectWrapper::setParkingBrake(bool set) {
     std::cout << "Setting parking brake: " << (set ? "ON" : "OFF") << std::endl;
     // TODO: Set PARKING_BRAKES event
 }
 
+void SimConnectWrapper::setBrakes(double value) {
+    std::cout << "Setting brakes: " << (value * 100.0) << "%" << std::endl;
+    // TODO: Set AXIS_BRAKE_SET or BRAKES event
+}
+
 void SimConnectWrapper::setMixture(double value) {
+    std::cout << "Setting mixture: " << (value * 100.0) << "%" << std::endl;
     // TODO: Set MIXTURE_SET event
 }
 
 void SimConnectWrapper::setPropellerPitch(double value) {
+    std::cout << "Setting propeller pitch: " << (value * 100.0) << "%" << std::endl;
     // TODO: Set PROP_PITCH_SET event
 }
 
@@ -158,6 +176,16 @@ void SimConnectWrapper::setMagnetos(int position) {
 void SimConnectWrapper::toggleEngineStarter(int engineIndex) {
     std::cout << "Toggling starter for engine " << engineIndex << std::endl;
     // TODO: Set TOGGLE_STARTER event
+}
+
+void SimConnectWrapper::setEngineState(int engineIndex, bool running) {
+    std::cout << "Setting engine " << engineIndex << " state: " << (running ? "RUNNING" : "OFF") << std::endl;
+    // TODO: Control engine state
+}
+
+void SimConnectWrapper::setLight(const std::string& lightName, bool on) {
+    std::cout << "Setting " << lightName << " light: " << (on ? "ON" : "OFF") << std::endl;
+    // TODO: Set appropriate light event (e.g., TOGGLE_NAV_LIGHTS, LANDING_LIGHTS_ON, etc.)
 }
 
 void SimConnectWrapper::sendATCMenuSelection(int menuIndex) {

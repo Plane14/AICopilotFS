@@ -53,8 +53,8 @@ void AircraftSystems::setSpeed(double speed) {
 }
 
 void AircraftSystems::setVerticalSpeed(double verticalSpeed) {
-    // TODO: Set vertical speed hold
     std::cout << "Setting vertical speed: " << verticalSpeed << " fpm" << std::endl;
+    simConnect_->setAutopilotVerticalSpeed(verticalSpeed);
 }
 
 void AircraftSystems::enableNavMode(bool enable) {
@@ -102,8 +102,8 @@ void AircraftSystems::setGear(bool down) {
 }
 
 void AircraftSystems::setSpoilers(bool deployed) {
-    // TODO: Set spoilers
     std::cout << "Setting spoilers: " << (deployed ? "DEPLOYED" : "RETRACTED") << std::endl;
+    simConnect_->setSpoilers(deployed);
 }
 
 void AircraftSystems::setParkingBrake(bool set) {
@@ -112,40 +112,48 @@ void AircraftSystems::setParkingBrake(bool set) {
 }
 
 void AircraftSystems::setBrakes(double value) {
-    // TODO: Set brakes
+    std::cout << "Setting brakes: " << (value * 100.0) << "%" << std::endl;
+    simConnect_->setBrakes(value);
 }
 
 void AircraftSystems::startEngine(int engineIndex) {
+    std::cout << "Starting engine " << engineIndex << std::endl;
     simConnect_->toggleEngineStarter(engineIndex);
 }
 
 void AircraftSystems::stopEngine(int engineIndex) {
-    // TODO: Stop engine
+    std::cout << "Stopping engine " << engineIndex << std::endl;
+    simConnect_->setEngineState(engineIndex, false);
 }
 
 void AircraftSystems::setMagnetos(int position) {
+    std::cout << "Setting magnetos: " << position << std::endl;
     simConnect_->setMagnetos(position);
 }
 
 void AircraftSystems::setNavigationLights(bool on) {
-    // TODO: Set navigation lights
     std::cout << "Navigation lights: " << (on ? "ON" : "OFF") << std::endl;
+    simConnect_->setLight("NAV", on);
 }
 
 void AircraftSystems::setBeaconLights(bool on) {
     std::cout << "Beacon lights: " << (on ? "ON" : "OFF") << std::endl;
+    simConnect_->setLight("BEACON", on);
 }
 
 void AircraftSystems::setStrobeLights(bool on) {
     std::cout << "Strobe lights: " << (on ? "ON" : "OFF") << std::endl;
+    simConnect_->setLight("STROBE", on);
 }
 
 void AircraftSystems::setLandingLights(bool on) {
     std::cout << "Landing lights: " << (on ? "ON" : "OFF") << std::endl;
+    simConnect_->setLight("LANDING", on);
 }
 
 void AircraftSystems::setTaxiLights(bool on) {
     std::cout << "Taxi lights: " << (on ? "ON" : "OFF") << std::endl;
+    simConnect_->setLight("TAXI", on);
 }
 
 AircraftState AircraftSystems::getCurrentState() const {

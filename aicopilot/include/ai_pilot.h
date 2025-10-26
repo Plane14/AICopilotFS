@@ -108,6 +108,9 @@ private:
     bool performSafetyChecks();
     void handleLowFuel();
     void handleBadWeather();
+    void handleEngineFailure();
+    void handleFire();
+    void handleLossOfControl();
     
     // Logging
     void log(const std::string& message);

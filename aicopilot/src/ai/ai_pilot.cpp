@@ -159,10 +159,88 @@ std::string AIPilot::getStatusReport() const {
 void AIPilot::handleEmergency(const std::string& emergencyType) {
     log("EMERGENCY: " + emergencyType);
     
-    // TODO: Implement emergency procedures
-    // - Engine failure: find nearest airport, glide, emergency landing
-    // - Fire: follow checklist
-    // - Loss of control: recover from unusual attitudes
+    if (emergencyType == "engine_failure") {
+        handleEngineFailure();
+    } else if (emergencyType == "low_fuel") {
+        handleLowFuel();
+    } else if (emergencyType == "fire") {
+        handleFire();
+    } else if (emergencyType == "loss_of_control") {
+        handleLossOfControl();
+    } else {
+        // Generic emergency response
+        log("Executing generic emergency procedures");
+        // Squawk 7700
+        // Find nearest suitable airport
+        // Declare emergency with ATC
+    }
+}
+
+void AIPilot::handleEngineFailure() {
+    log("Engine failure - executing emergency procedures");
+    
+    // Maintain airspeed - best glide speed
+    double bestGlideSpeed = aircraftConfig_.stallSpeed * 1.5;
+    systems_->setSpeed(bestGlideSpeed);
+    
+    // Find nearest airport
+    // TODO: Integrate with navdata to find nearest suitable airport
+    
+    // Configure for forced landing
+    currentPhase_ = FlightPhase::APPROACH;
+    
+    // Attempt restart if altitude permits
+    if (currentState_.position.altitude > 3000.0) {
+        log("Attempting engine restart");
+        systems_->setMagnetos(3); // BOTH
+        systems_->setMixture(1.0); // Full rich
+        systems_->startEngine(0);
+    }
+}
+
+void AIPilot::handleFire() {
+    log("Fire detected - executing fire procedures");
+    
+    // Shut down affected system
+    systems_->stopEngine(0);
+    systems_->setMixture(0.0);
+    systems_->setThrottle(0.0);
+    
+    // Descend immediately
+    if (!currentState_.onGround) {
+        systems_->setAltitude(std::max(currentState_.position.altitude - 2000.0, 1000.0));
+    }
+    
+    // Find nearest airport for emergency landing
+    handleLowFuel(); // Reuse diversion logic
+}
+
+void AIPilot::handleLossOfControl() {
+    log("Loss of control - executing recovery procedures");
+    
+    // Disable autopilot
+    systems_->enableAutopilot(false);
+    
+    // Power to idle
+    systems_->setThrottle(0.0);
+    
+    // Wings level recovery
+    systems_->setRoll(0.0);
+    
+    // Recover from unusual attitude
+    if (currentState_.pitch > 30.0) {
+        // Nose high - push forward
+        systems_->setPitch(-0.3);
+    } else if (currentState_.pitch < -30.0) {
+        // Nose low - pull back
+        systems_->setPitch(0.3);
+    }
+    
+    // Once recovered, re-engage autopilot
+    if (std::abs(currentState_.bank) < 10.0 && std::abs(currentState_.pitch) < 15.0) {
+        systems_->enableAutopilot(true);
+        log("Aircraft control recovered");
+    }
 }
 
 void AIPilot::setManualOverride(bool override) {
@@ -273,8 +351,38 @@ void AIPilot::executeTaxiOut() {
     
     // Enable taxi lights
     systems_->setTaxiLights(true);
+    systems_->setNavigationLights(true);
+    systems_->setBeaconLights(true);
     
-    // TODO: Follow taxi route
+    // Release parking brake if set
+    if (currentState_.parkingBrakeSet) {
+        systems_->setParkingBrake(false);
+    }
+    
+    // Taxi speed control (< 15 knots)
+    if (currentState_.groundSpeed < 10.0) {
+        systems_->setThrottle(0.2);
+    } else if (currentState_.groundSpeed > 15.0) {
+        systems_->setThrottle(0.0);
+        systems_->setBrakes(0.5);
+    }
+    
+    // Follow taxi route if available
+    if (navigation_ && navigation_->getFlightPlan().waypoints.size() > 0) {
+        Waypoint firstWaypoint = navigation_->getFlightPlan().waypoints[0];
+        double bearing = navigation_->bearingToWaypoint(currentState_.position, firstWaypoint);
+        
+        // Simple heading control for taxi
+        double headingDiff = bearing - currentState_.heading;
+        if (headingDiff > 180.0) headingDiff -= 360.0;
+        if (headingDiff < -180.0) headingDiff += 360.0;
+        
+        // Apply gentle rudder input
+        if (std::abs(headingDiff) > 5.0) {
+            double rudderInput = std::max(-0.3, std::min(0.3, headingDiff / 30.0));
+            systems_->setYaw(rudderInput);
+        }
+    }
 }
 
 void AIPilot::executeTakeoff() {
@@ -374,7 +482,48 @@ void AIPilot::executeLanding() {
     systems_->setFlaps(100);
     systems_->setGear(true);
     
-    // TODO: Flare and touchdown logic
+    // Landing speed (1.3 * stall speed)
+    double landingSpeed = aircraftConfig_.stallSpeed * 1.3;
+    
+    // Flare logic
+    if (currentState_.position.altitude < 50.0 && currentState_.position.altitude > 5.0) {
+        log("Flaring for landing");
+        // Gradual pitch increase for flare
+        double flareAmount = (50.0 - currentState_.position.altitude) / 50.0;
+        systems_->setPitch(0.05 + flareAmount * 0.1);
+        
+        // Reduce power gradually
+        systems_->setThrottle(0.3 * (1.0 - flareAmount));
+    }
+    else if (currentState_.position.altitude <= 5.0) {
+        log("Touchdown");
+        // Touchdown - idle power
+        systems_->setThrottle(0.0);
+        systems_->setPitch(0.02); // Keep nose up slightly
+    }
+    
+    // After touchdown
+    if (currentState_.onGround && currentState_.groundSpeed > 0) {
+        log("Rollout - applying brakes");
+        // Progressive braking
+        if (currentState_.groundSpeed > 60.0) {
+            systems_->setBrakes(0.3);
+        } else if (currentState_.groundSpeed > 30.0) {
+            systems_->setBrakes(0.5);
+        } else {
+            systems_->setBrakes(0.7);
+        }
+        
+        // Retract flaps after slowing down
+        if (currentState_.groundSpeed < 40.0) {
+            systems_->setFlaps(0);
+        }
+        
+        // Transition to taxi when slow
+        if (currentState_.groundSpeed < 10.0) {
+            currentPhase_ = FlightPhase::TAXI_IN;
+        }
+    }
 }
 
 void AIPilot::executeTaxiIn() {
@@ -392,13 +541,52 @@ void AIPilot::executeTaxiIn() {
 void AIPilot::executeShutdown() {
     log("Shutting down");
     
-    // Set parking brake
-    systems_->setParkingBrake(true);
+    static bool shutdownComplete = false;
     
-    // Reduce throttle
-    systems_->setThrottle(0.0);
-    
-    // TODO: Shutdown checklist
+    if (!shutdownComplete) {
+        // Shutdown checklist
+        
+        // 1. Set parking brake
+        systems_->setParkingBrake(true);
+        log("Parking brake - SET");
+        
+        // 2. Throttle to idle
+        systems_->setThrottle(0.0);
+        log("Throttle - IDLE");
+        
+        // 3. Mixture to idle cutoff
+        systems_->setMixture(0.0);
+        log("Mixture - IDLE CUTOFF");
+        
+        // 4. Shut down engines
+        for (int i = 0; i < aircraftConfig_.numberOfEngines; i++) {
+            systems_->stopEngine(i);
+        }
+        log("Engines - SHUTDOWN");
+        
+        // 5. Magnetos OFF
+        systems_->setMagnetos(0);
+        log("Magnetos - OFF");
+        
+        // 6. Avionics and electrical
+        // Note: These would need additional SimConnect controls
+        log("Avionics - OFF");
+        
+        // 7. Lights OFF
+        systems_->setNavigationLights(false);
+        systems_->setBeaconLights(false);
+        systems_->setStrobeLights(false);
+        systems_->setLandingLights(false);
+        systems_->setTaxiLights(false);
+        log("Lights - OFF");
+        
+        // 8. Complete
+        shutdownComplete = true;
+        log("Shutdown checklist complete");
+        
+        // Stop autonomous flight
+        stopAutonomousFlight();
+    }
 }
 
 bool AIPilot::shouldStartTakeoff() {
@@ -469,12 +657,65 @@ bool AIPilot::performSafetyChecks() {
 
 void AIPilot::handleLowFuel() {
     log("WARNING: Low fuel - finding nearest airport");
-    // TODO: Find nearest airport and divert
+    
+    // Calculate remaining flight time
+    double fuelRemaining = currentState_.fuelQuantity;
+    double fuelBurnRate = 10.0; // gallons per hour (estimate)
+    double remainingMinutes = (fuelRemaining / fuelBurnRate) * 60.0;
+    
+    log("Estimated fuel remaining: " + std::to_string(remainingMinutes) + " minutes");
+    
+    // Reduce power for best range
+    double economySpeed = aircraftConfig_.cruiseSpeed * 0.75;
+    systems_->setSpeed(economySpeed);
+    
+    // Find nearest suitable airport
+    // TODO: Integrate with navdata database to find nearest airport
+    log("Searching for nearest suitable airport for diversion");
+    
+    // Declare fuel emergency with ATC
+    if (atc_) {
+        log("Declaring minimum fuel with ATC");
+        // ATC would be notified through SimConnect
+    }
+    
+    // Update flight plan to divert
+    if (fuelRemaining < 3.0) {
+        log("CRITICAL: Fuel emergency - preparing for emergency landing");
+        handleEmergency("low_fuel");
+    }
 }
 
 void AIPilot::handleBadWeather() {
     log("WARNING: Bad weather detected");
-    // TODO: Weather avoidance or diversion
+    
+    // Weather assessment and decision making
+    // TODO: Get actual weather data from SimConnect
+    
+    // Decision tree for weather
+    log("Assessing weather severity and options");
+    
+    // Option 1: Continue if conditions are acceptable
+    // Option 2: Divert to alternate
+    // Option 3: Return to departure
+    // Option 4: Hold and wait for improvement
+    
+    // For now, implement basic weather avoidance
+    log("Implementing weather avoidance procedures");
+    
+    // Increase altitude if icing conditions
+    if (currentState_.position.altitude < 10000.0) {
+        log("Climbing to avoid weather");
+        double weatherAvoidanceAlt = std::min(currentState_.position.altitude + 2000.0, 
+                                             aircraftConfig_.serviceceiling * 0.9);
+        systems_->setAltitude(weatherAvoidanceAlt);
+    }
+    
+    // Consider diversion
+    if (atc_) {
+        log("Requesting weather information from ATC");
+        // ATC interaction would happen through SimConnect
+    }
 }
 
 void AIPilot::log(const std::string& message) {

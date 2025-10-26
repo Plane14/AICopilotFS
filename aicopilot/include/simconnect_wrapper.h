@@ -44,6 +44,7 @@ public:
     void setAutopilotHeading(double heading);
     void setAutopilotAltitude(double altitude);
     void setAutopilotSpeed(double speed);
+    void setAutopilotVerticalSpeed(double verticalSpeed);
     void setAutopilotNav(bool enabled);
     void setAutopilotApproach(bool enabled);
     
@@ -54,13 +55,19 @@ public:
     void setRudder(double value);        // -1.0 to 1.0
     void setFlaps(int position);         // 0 to 100%
     void setGear(bool down);
+    void setSpoilers(bool deployed);
     void setParkingBrake(bool set);
+    void setBrakes(double value);        // 0.0 to 1.0
     
     // Engine controls
     void setMixture(double value);       // 0.0 to 1.0
     void setPropellerPitch(double value); // 0.0 to 1.0
     void setMagnetos(int position);      // 0=off, 1=right, 2=left, 3=both
     void toggleEngineStarter(int engineIndex);
+    void setEngineState(int engineIndex, bool running);
+    
+    // Lighting controls
+    void setLight(const std::string& lightName, bool on);
     
     // ATC interaction
     void sendATCMenuSelection(int menuIndex);

@@ -17,7 +17,9 @@ namespace AICopilot {
 AIPilot::AIPilot() 
     : active_(false)
     , manualOverride_(false)
-    , currentPhase_(FlightPhase::UNKNOWN) {
+    , currentPhase_(FlightPhase::UNKNOWN)
+    , fuelWarning20Shown_(false)
+    , fuelWarning10Shown_(false) {
 }
 
 AIPilot::~AIPilot() {
@@ -652,13 +654,15 @@ bool AIPilot::performSafetyChecks() {
         return false;
     }
     
-    // Fuel warnings at 20% and 10%
+    // Fuel warnings at 20% and 10% (show once)
     double fuelPercent = (currentState_.fuelQuantity / aircraftConfig_.fuelCapacity) * 100.0;
-    if (fuelPercent < 20.0 && fuelPercent > 19.0) {
+    if (fuelPercent < 20.0 && !fuelWarning20Shown_) {
         log("WARNING: Fuel at 20%");
+        fuelWarning20Shown_ = true;
     }
-    if (fuelPercent < 10.0 && fuelPercent > 9.0) {
+    if (fuelPercent < 10.0 && !fuelWarning10Shown_) {
         log("CAUTION: Fuel at 10% - diversion recommended");
+        fuelWarning10Shown_ = true;
     }
     
     // Check terrain clearance

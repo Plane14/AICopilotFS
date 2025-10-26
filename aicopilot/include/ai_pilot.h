@@ -77,6 +77,10 @@ private:
     FlightPhase currentPhase_;
     AircraftState currentState_;
     
+    // Fuel warning flags
+    bool fuelWarning20Shown_;
+    bool fuelWarning10Shown_;
+    
     // Phase management
     void updateFlightPhase();
     void executePhase();

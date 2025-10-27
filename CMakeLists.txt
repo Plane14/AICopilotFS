@@ -32,6 +32,14 @@ set(AICOPILOT_SOURCES
     aicopilot/src/atc/atc_controller.cpp
     aicopilot/src/atc/ollama_client.cpp
     aicopilot/src/ai/ai_pilot.cpp
+    aicopilot/src/weather/weather_system.cpp
+    aicopilot/src/terrain/terrain_awareness.cpp
+    aicopilot/src/traffic/traffic_system.cpp
+    aicopilot/src/approach/approach_system.cpp
+    aicopilot/src/profiles/aircraft_profile.cpp
+    aicopilot/src/voice/voice_interface.cpp
+    aicopilot/src/ml/ml_decision_system.cpp
+    aicopilot/src/helicopter/helicopter_operations.cpp
 )
 
 # Header files
@@ -45,6 +53,14 @@ set(AICOPILOT_HEADERS
     aicopilot/include/atc_controller.h
     aicopilot/include/ollama_client.h
     aicopilot/include/ai_pilot.h
+    aicopilot/include/weather_system.h
+    aicopilot/include/terrain_awareness.h
+    aicopilot/include/traffic_system.h
+    aicopilot/include/approach_system.h
+    aicopilot/include/aircraft_profile.h
+    aicopilot/include/voice_interface.h
+    aicopilot/include/ml_decision_system.h
+    aicopilot/include/helicopter_operations.h
 )
 
 # Create library

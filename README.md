@@ -48,6 +48,14 @@ make
 - **Autonomous Flight**: Complete flight automation through all phases (preflight → taxi → takeoff → climb → cruise → descent → approach → landing → shutdown)
 - **Navigation**: Great circle navigation, waypoint following, cross-track error monitoring
 - **Safety Systems**: Fuel monitoring, system health checks, emergency handling
+- **Weather Analysis**: Advanced weather hazard detection, avoidance routing, and severity assessment
+- **Terrain Awareness**: TAWS/EGPWS system with multi-level warnings and collision avoidance
+- **Traffic Avoidance**: TCAS implementation with traffic advisories and resolution advisories
+- **Advanced Approaches**: ILS, RNAV, and RNP approach procedures with precision guidance
+- **Aircraft Profiles**: Multiple aircraft type profiles with performance-based procedures
+- **Voice Recognition**: Integration framework for external speech-to-text/text-to-speech engines
+- **Machine Learning**: Pattern-based decision optimization and learning system
+- **Helicopter Operations**: Full support for rotorcraft including hover, VTOL, and autorotation
 
 ## Documentation
 

@@ -148,16 +148,18 @@ if(ENABLE_OLLAMA)
     if(CURL_FOUND AND JSONCPP_FOUND)
         message(STATUS "Ollama integration enabled")
         add_definitions(-DENABLE_OLLAMA)
-        set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client.cpp)
+        set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_impl.cpp)
         set(OLLAMA_HEADERS aicopilot/include/ollama_client.h)
         set(OLLAMA_LIBRARIES ${CURL_LIBRARIES} ${JSONCPP_LIBRARIES})
         include_directories(${JSONCPP_INCLUDE_DIRS})
     else()
         message(WARNING "Ollama integration requires CURL and jsoncpp. Disabling Ollama support.")
         set(ENABLE_OLLAMA OFF)
+        set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_stub.cpp)
     endif()
 else()
     message(STATUS "Ollama integration disabled (use -DENABLE_OLLAMA=ON to enable)")
+    set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_stub.cpp)
 endif()
 
 # Source files
@@ -169,7 +171,6 @@ set(AICOPILOT_SOURCES
     aicopilot/src/navigation/navigation.cpp
     aicopilot/src/navdata/navdata_providers.cpp
     aicopilot/src/atc/atc_controller.cpp
-    aicopilot/src/atc/ollama_client_stub.cpp
     aicopilot/src/ai/ai_pilot.cpp
     aicopilot/src/weather/weather_system.cpp
     aicopilot/src/terrain/terrain_awareness.cpp

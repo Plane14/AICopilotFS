@@ -18,6 +18,7 @@
 #include "aircraft_config.h"
 #include "navdata_provider.h"
 #include "weather_system.h"
+#include "airport_integration.hpp"
 #include <memory>
 #include <string>
 
@@ -76,8 +77,11 @@ private:
     std::shared_ptr<SimConnectWrapper> simConnect_;
     std::unique_ptr<AircraftSystems> systems_;
     std::unique_ptr<ATCController> atc_;
+    std::shared_ptr<Integration::AirportManager> airportManager_;
+    std::unique_ptr<Integration::AirportOperationSystem> airportOps_;
+    std::shared_ptr<Integration::SimConnectBridge> simBridge_;
     std::unique_ptr<Navigation> navigation_;
-    std::unique_ptr<INavdataProvider> navdataProvider_;
+    std::shared_ptr<INavdataProvider> navdataProvider_;
     std::unique_ptr<WeatherSystem> weatherSystem_;
     AircraftConfig aircraftConfig_;
     
@@ -90,7 +94,8 @@ private:
     // Fuel warning flags
     bool fuelWarning20Shown_;
     bool fuelWarning10Shown_;
-    
+    bool airportOpsInitialized_;
+
     // Phase management
     void updateFlightPhase();
     void executePhase();
@@ -136,6 +141,10 @@ private:
     
     // Logging
     void log(const std::string& message);
+
+    // Airport operations helpers
+    void initializeAirportOperations();
+    void setupDefaultAirportLayout();
 };
 
 } // namespace AICopilot

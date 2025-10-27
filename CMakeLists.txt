@@ -180,6 +180,8 @@ set(AICOPILOT_SOURCES
     aicopilot/src/voice/voice_interface.cpp
     aicopilot/src/ml/ml_decision_system.cpp
     aicopilot/src/helicopter/helicopter_operations.cpp
+    aicopilot/src/airport/airport_manager.cpp
+    aicopilot/src/airport/airport_integration.cpp
     ${OLLAMA_SOURCES}
 )
 
@@ -201,6 +203,8 @@ set(AICOPILOT_HEADERS
     aicopilot/include/voice_interface.h
     aicopilot/include/ml_decision_system.h
     aicopilot/include/helicopter_operations.h
+    aicopilot/include/airport_manager.h
+    aicopilot/include/airport_integration.hpp
     ${OLLAMA_HEADERS}
 )
 

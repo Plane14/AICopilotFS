@@ -19,7 +19,8 @@ ATCController::ATCController(std::shared_ptr<SimConnectWrapper> simConnect)
     , ollamaClient_(std::make_unique<OllamaClient>())
     , currentPhase_(FlightPhase::UNKNOWN)
     , waitingForResponse_(false)
-    , ollamaEnabled_(false) {
+    , ollamaEnabled_(false)
+    , airportOps_(nullptr) {
     
     // Subscribe to ATC messages
     simConnect_->subscribeToATCMessages([this](const ATCMessage& msg) {
@@ -63,6 +64,10 @@ void ATCController::setFlightPhase(FlightPhase phase) {
 
 void ATCController::setFlightPlan(const FlightPlan& plan) {
     flightPlan_ = plan;
+}
+
+void ATCController::setAirportOperations(Integration::AirportOperationSystem* operations) {
+    airportOps_ = operations;
 }
 
 std::vector<std::string> ATCController::getPendingInstructions() const {
@@ -190,6 +195,8 @@ void ATCController::parseInstruction(const std::string& instruction) {
     std::string lower = instruction;
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     
+    handleInstruction(instruction);
+
     // Extract altitude instructions (with numeric values)
     if (lower.find("climb") != std::string::npos || 
         lower.find("descend") != std::string::npos ||
@@ -246,6 +253,45 @@ void ATCController::parseInstruction(const std::string& instruction) {
     // Extract squawk codes
     if (lower.find("squawk") != std::string::npos) {
         pendingInstructions_.push_back("Squawk: " + instruction);
+    }
+}
+
+void ATCController::handleInstruction(const std::string& instruction) {
+    if (!airportOps_) {
+        return;
+    }
+
+    // Assume user aircraft id 0 for now
+    const int aircraftId = 0;
+
+    airportOps_->handle_atc_instruction(aircraftId, instruction);
+
+    const auto* clearance = airportOps_->get_clearance_state(aircraftId);
+    if (!clearance) {
+        return;
+    }
+
+    switch (clearance->get_state()) {
+        case ClearanceStateMachine::ClearanceState::PushbackRequested:
+            pendingInstructions_.push_back("Awaiting pushback clearance");
+            break;
+        case ClearanceStateMachine::ClearanceState::TaxiingToRunway:
+            pendingInstructions_.push_back("Taxiing to runway");
+            break;
+        case ClearanceStateMachine::ClearanceState::HoldingAtRunway:
+            pendingInstructions_.push_back("Holding short");
+            break;
+        case ClearanceStateMachine::ClearanceState::TakeoffCleared:
+            pendingInstructions_.push_back("Cleared for takeoff");
+            break;
+        case ClearanceStateMachine::ClearanceState::TaxiingToParking:
+            pendingInstructions_.push_back("Taxiing to parking");
+            break;
+        case ClearanceStateMachine::ClearanceState::ParkingArrived:
+            pendingInstructions_.push_back("Parked at gate");
+            break;
+        default:
+            break;
     }
 }
 

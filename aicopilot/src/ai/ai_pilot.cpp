@@ -10,6 +10,7 @@
 #include "../include/ai_pilot.h"
 #include "../include/navdata_provider.h"
 #include "../include/weather_system.h"
+#include <chrono>
 #include <iostream>
 #include <sstream>
 #include <cmath>
@@ -23,6 +24,7 @@ AIPilot::AIPilot()
     , currentPhase_(FlightPhase::UNKNOWN)
     , fuelWarning20Shown_(false)
     , fuelWarning10Shown_(false)
+    , airportOpsInitialized_(false)
     , navdataProvider_(nullptr)
     , weatherSystem_(nullptr) {
 }
@@ -41,11 +43,11 @@ bool AIPilot::initialize(SimulatorType simType) {
     }
     
     // Initialize navdata provider for airport/navaid lookups
-    navdataProvider_ = std::make_unique<SimConnectNavdataProvider>();
+    navdataProvider_ = std::make_shared<SimConnectNavdataProvider>();
     if (!navdataProvider_->initialize()) {
         log("WARNING: Failed to initialize navdata provider - airport search will be limited");
         // Not a critical failure, continue with cached provider as fallback
-        navdataProvider_ = std::make_unique<CachedNavdataProvider>();
+        navdataProvider_ = std::make_shared<CachedNavdataProvider>();
         navdataProvider_->initialize();
     }
     
@@ -85,6 +87,9 @@ bool AIPilot::loadFlightPlan(const std::string& planPath) {
     }
     
     log("Flight plan loaded");
+    if (airportOpsInitialized_) {
+        setupDefaultAirportLayout();
+    }
     return true;
 }
 
@@ -108,6 +113,8 @@ void AIPilot::startAutonomousFlight() {
     if (navigation_) {
         atc_->setFlightPlan(navigation_->getFlightPlan());
     }
+
+    initializeAirportOperations();
 }
 
 void AIPilot::stopAutonomousFlight() {
@@ -130,6 +137,13 @@ void AIPilot::update() {
     
     // Update subsystems
     systems_->update();
+    static auto lastUpdateTime = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    double deltaTime = std::chrono::duration<double>(now - lastUpdateTime).count();
+    lastUpdateTime = now;
+    if (airportOps_) {
+        airportOps_->update(deltaTime);
+    }
     if (atc_) {
         atc_->update();
     }
@@ -1079,6 +1093,132 @@ bool AIPilot::isWeatherSuitable() {
 
 void AIPilot::log(const std::string& message) {
     std::cout << "[AI Pilot] " << message << std::endl;
+}
+
+void AIPilot::initializeAirportOperations() {
+    if (!simConnect_) {
+        return;
+    }
+
+    if (!airportManager_) {
+        airportManager_ = std::make_shared<Integration::AirportManager>(navdataProvider_);
+    } else {
+        airportManager_->set_navdata_provider(navdataProvider_);
+    }
+
+    if (!airportOps_) {
+        airportOps_ = std::make_unique<Integration::AirportOperationSystem>(airportManager_);
+    }
+
+    if (!simBridge_) {
+        simBridge_ = std::make_shared<Integration::SimConnectBridge>(simConnect_);
+    }
+
+    airportOps_->set_simconnect_bridge(simBridge_);
+
+    if (atc_) {
+        atc_->setAirportOperations(airportOps_.get());
+    }
+
+    setupDefaultAirportLayout();
+    airportOpsInitialized_ = true;
+}
+
+void AIPilot::setupDefaultAirportLayout() {
+    if (!airportManager_ || !airportOps_) {
+        return;
+    }
+
+    std::string airportIcao = "KJFK";
+    FlightPlan plan;
+    if (navigation_) {
+        plan = navigation_->getFlightPlan();
+        if (!plan.departure.empty()) {
+            airportIcao = plan.departure;
+        } else if (!plan.arrival.empty()) {
+            airportIcao = plan.arrival;
+        }
+    }
+
+    Airport::LatLonAlt referencePoint(40.6413, -73.7781, 13.0);
+    double runwayLength = 12000.0;
+    bool initialized = false;
+
+    if (navdataProvider_ && navdataProvider_->isReady()) {
+        AirportInfo info;
+        if (navdataProvider_->getAirportByICAO(airportIcao, info)) {
+            referencePoint = Airport::LatLonAlt(info.position.latitude,
+                                                info.position.longitude,
+                                                info.elevation);
+            if (info.longestRunway > 0) {
+                runwayLength = static_cast<double>(info.longestRunway);
+            }
+            initialized = airportOps_->initialize_airport(airportIcao, referencePoint);
+        }
+    }
+
+    if (!initialized) {
+        airportOps_->initialize_airport(airportIcao, referencePoint);
+    }
+
+    std::vector<Airport::Runway> runways;
+    Airport::Runway runwayA;
+    runwayA.runway_number = 4;
+    runwayA.runway_ident = "04";
+    runwayA.heading_true = 40.0;
+    runwayA.length_feet = runwayLength;
+    runwayA.width_feet = 200.0;
+    runwayA.surface_type = Airport::Runway::Surface::Asphalt;
+    runwayA.lighting_type = Airport::Runway::Lighting::FullHighIntensity;
+    runwayA.has_ils = true;
+    runways.push_back(runwayA);
+
+    Airport::Runway runwayB;
+    runwayB.runway_number = 22;
+    runwayB.runway_ident = "22";
+    runwayB.heading_true = 220.0;
+    runwayB.length_feet = runwayLength;
+    runwayB.width_feet = 200.0;
+    runwayB.surface_type = Airport::Runway::Surface::Concrete;
+    runwayB.lighting_type = Airport::Runway::Lighting::FullHighIntensity;
+    runwayB.has_ils = true;
+    runways.push_back(runwayB);
+
+    Airport::TaxiwayNetwork taxiwayNetwork;
+    Airport::TaxiwayNode nodeGate(1, Airport::LatLonAlt(referencePoint.latitude + 0.0005,
+                                                         referencePoint.longitude + 0.0005,
+                                                         referencePoint.altitude));
+    nodeGate.name = "GATE";
+    nodeGate.type = Airport::TaxiwayNode::NodeType::ParkingArea;
+    taxiwayNetwork.add_node(nodeGate);
+
+    Airport::TaxiwayNode nodeHold(2, Airport::LatLonAlt(referencePoint.latitude + 0.0015,
+                                                         referencePoint.longitude + 0.0015,
+                                                         referencePoint.altitude));
+    nodeHold.name = "HOLD";
+    nodeHold.type = Airport::TaxiwayNode::NodeType::RunwayHold;
+    taxiwayNetwork.add_node(nodeHold);
+
+    Airport::TaxiwayEdge edge(1, 1, 2, 1500.0);
+    edge.max_speed_knots = 15.0;
+    edge.is_bidirectional = true;
+    taxiwayNetwork.add_edge(edge);
+
+    std::vector<Airport::ParkingPosition> parking;
+    Airport::ParkingPosition stand(100, nodeGate.position);
+    stand.type = Airport::ParkingPosition::Type::Gate;
+    stand.gate_name = "A1";
+    stand.max_wingspan_feet = 220.0;
+    parking.push_back(stand);
+
+    airportOps_->load_airport_data(runways, taxiwayNetwork, parking);
+
+    if (navigation_) {
+        auto fp = navigation_->getFlightPlan();
+        if (atc_) {
+            atc_->setFlightPlan(fp);
+        }
+    }
 }
 
 } // namespace AICopilot

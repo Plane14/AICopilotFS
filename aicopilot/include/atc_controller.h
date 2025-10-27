@@ -18,6 +18,10 @@
 
 namespace AICopilot {
 
+namespace Integration {
+class AirportOperationSystem;
+}
+
 /**
  * ATC interaction controller
  * Handles communication with ATC, parses instructions, and selects appropriate responses
@@ -42,6 +46,9 @@ public:
     
     // Set flight plan for ATC coordination
     void setFlightPlan(const FlightPlan& plan);
+
+    // Connect to airport operations system for ground coordination
+    void setAirportOperations(Integration::AirportOperationSystem* operations);
     
     // Get pending instructions
     std::vector<std::string> getPendingInstructions() const;
@@ -74,6 +81,7 @@ private:
     std::string lastClearance_;
     bool waitingForResponse_;
     bool ollamaEnabled_;
+    Integration::AirportOperationSystem* airportOps_;
     
     // AI decision making for ATC menu selection
     int selectBestMenuOption(const ATCMessage& message);
@@ -83,6 +91,7 @@ private:
     
     // Parse ATC instruction
     void parseInstruction(const std::string& instruction);
+    void handleInstruction(const std::string& instruction);
     
     // Context analysis
     bool isRelevantForPhase(const std::string& option, FlightPhase phase);

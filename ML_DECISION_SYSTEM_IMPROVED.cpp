@@ -1,15 +1,20 @@
 /*****************************************************************************
 * Copyright 2025 AI Copilot FS Project
+*
+* Enhanced ML Decision System - Feature Extraction Implementation
+* 
+* File: aicopilot/src/ml/ml_decision_system.cpp
+* Status: Ready for Production
+* 
+* This file contains enhanced implementations for sophisticated machine learning
+* feature extraction and similarity calculations suitable for ATC decision making
+* and flight phase analysis.
 *****************************************************************************/
 
 #include "ml_decision_system.h"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace AICopilot {
 
@@ -146,6 +151,10 @@ std::vector<double> MLDecisionSystem::extractPhaseFeatures(FlightPhase phase) co
      * - Captures phase continuity
      * - Helps ML model understand phase transitions
      * - Reduces phase boundary artifacts
+     * 
+     * Example encoding for TAKEOFF (phase index 2):
+     * features = [0.0, 0.5, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+     *             PREF TAXI TKOF CLIM CRUI DESC APPR LAND TXIN SHUT
      */
     std::vector<double> features(10, 0.0);
     int phaseIndex = static_cast<int>(phase);
@@ -293,6 +302,12 @@ double MLDecisionSystem::calculateSimilarity(
      * - 0.5-0.9: Very similar contexts
      * - 0.1-0.5: Somewhat similar contexts
      * - 0.0-0.1: Dissimilar contexts
+     * 
+     * Mathematical formula:
+     * distance = √(Σ(f1[i] - f2[i])²)
+     * featureSim = exp(-distance)
+     * phaseSim = 1 if phase1 == phase2 else 0
+     * result = 0.7 * featureSim + 0.3 * phaseSim
      */
     
     // Extract feature vectors from both contexts
@@ -335,3 +350,4 @@ double MLDecisionSystem::calculateSimilarity(
 }
 
 } // namespace AICopilot
+

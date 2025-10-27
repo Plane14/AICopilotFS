@@ -3,6 +3,10 @@
 #include <cmath>
 #include <iostream>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace {
 constexpr double kKnotsToFeetPerSecond = 1.6878098571011957;
 }

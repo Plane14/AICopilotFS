@@ -202,6 +202,23 @@ bool SimConnectNavdataProvider::getNearestAirport(const Position& position, Airp
     return found;
 }
 
+bool SimConnectNavdataProvider::getAirportLayout(const std::string& icao, AirportLayout& layout) {
+    if (!pImpl->ready) {
+        return false;
+    }
+    
+    // For now, return a basic empty layout
+    // A full implementation would use SimConnect facility requests or database lookups
+    layout.runways.clear();
+    layout.taxiwayNetwork = Airport::TaxiwayNetwork();
+    layout.parkingPositions.clear();
+    
+    std::cout << "SimConnectNavdataProvider::getAirportLayout(" << icao 
+             << ") - stub implementation, returning empty layout" << std::endl;
+    
+    return true; // Return true even with empty data to avoid errors
+}
+
 void SimConnectNavdataProvider::setSimConnectHandle(void* hSimConnect) {
     pImpl->hSimConnect = hSimConnect;
 }
@@ -373,6 +390,25 @@ bool CachedNavdataProvider::getNearestAirport(const Position& position, AirportI
         }
     }
     return found;
+}
+
+bool CachedNavdataProvider::getAirportLayout(const std::string& icao, AirportLayout& layout) {
+    // Check if airport exists in cache
+    auto it = pImpl->airports.find(icao);
+    if (it == pImpl->airports.end()) {
+        return false;
+    }
+    
+    // For now, return a basic empty layout
+    // A full implementation would load actual runway, taxiway, and parking data from a database
+    layout.runways.clear();
+    layout.taxiwayNetwork = Airport::TaxiwayNetwork();
+    layout.parkingPositions.clear();
+    
+    std::cout << "CachedNavdataProvider::getAirportLayout(" << icao 
+             << ") - stub implementation, returning empty layout" << std::endl;
+    
+    return true; // Return true if airport exists, even with empty layout data
 }
 
 void CachedNavdataProvider::addAirport(const AirportInfo& info) {

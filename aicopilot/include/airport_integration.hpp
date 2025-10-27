@@ -159,6 +159,7 @@ private:
     std::unique_ptr<HoldingPatternGenerator> holding_pattern_gen_;
 
     std::map<int, SimConnectBridge::SimConnectData> aircraft_states_;
+    std::map<int, ClearanceStateMachine> aircraft_clearances_;
 
     double collision_check_interval_ms_;
     double sequencing_update_interval_ms_;
@@ -180,5 +181,3 @@ private:
 
 } // namespace Integration
 } // namespace AICopilot
-
-#endif // AICOPILOT_INTEGRATION_HPP

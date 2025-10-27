@@ -6,6 +6,7 @@
 #include <cmath>
 #include <queue>
 #include <limits>
+#include <string>
 
 // ============================================================================
 // PART 1: AIRPORT DATA STRUCTURES
@@ -23,11 +24,12 @@ class TaxiwayNetwork;
 class AirportMaster;
 
 // Constants
+constexpr double PI = 3.14159265358979323846;
 constexpr double FEET_TO_METERS = 0.3048;
 constexpr double METERS_TO_FEET = 3.28084;
 constexpr double EARTH_RADIUS_M = 6371000.0;
-constexpr double DEG_TO_RAD = M_PI / 180.0;
-constexpr double RAD_TO_DEG = 180.0 / M_PI;
+constexpr double DEG_TO_RAD = PI / 180.0;
+constexpr double RAD_TO_DEG = 180.0 / PI;
 
 // ============================================================================
 // Geometric Types
@@ -290,9 +292,9 @@ public:
         }
     }
     
-    TaxiwayEdge* get_edge(int edge_id) {
+    TaxiwayEdge* get_edge(int edge_id) const {
         auto it = edges.find(edge_id);
-        return (it != edges.end()) ? &it->second : nullptr;
+        return (it != edges.end()) ? const_cast<TaxiwayEdge*>(&it->second) : nullptr;
     }
     
     const std::vector<int>& get_adjacent_edges(int node_id) const {
@@ -464,6 +466,10 @@ public:
         : airport_id(id), icao_code(icao), elevation_feet(0.0),
           is_controlled(false), number_of_towers(1) {}
     
+    // Move semantics for std::optional compatibility
+    AirportMaster(AirportMaster&&) = default;
+    AirportMaster& operator=(AirportMaster&&) = default;
+    
     // Setters
     void set_reference_point(const LatLonAlt& ref) { reference_point = ref; }
     void set_elevation(double elev_ft) { elevation_feet = elev_ft; }
@@ -490,6 +496,10 @@ public:
         return taxiway_network;
     }
     
+    const TaxiwayNetwork& get_taxiway_network() const {
+        return taxiway_network;
+    }
+
     const TaxiwayNetwork& get_taxiway_network_const() const {
         return taxiway_network;
     }

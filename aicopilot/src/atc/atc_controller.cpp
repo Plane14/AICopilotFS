@@ -8,11 +8,14 @@
 *****************************************************************************/
 
 #include "../include/atc_controller.h"
+#include "../include/airport_integration.hpp"
+#include "../include/atc_routing.hpp"
 #include <algorithm>
 #include <iostream>
 #include <sstream>
 
 namespace AICopilot {
+using namespace ATC;
 
 ATCController::ATCController(std::shared_ptr<SimConnectWrapper> simConnect)
     : simConnect_(simConnect)

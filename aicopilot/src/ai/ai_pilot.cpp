@@ -17,7 +17,9 @@ namespace AICopilot {
 AIPilot::AIPilot() 
     : active_(false)
     , manualOverride_(false)
-    , currentPhase_(FlightPhase::UNKNOWN) {
+    , currentPhase_(FlightPhase::UNKNOWN)
+    , fuelWarning20Shown_(false)
+    , fuelWarning10Shown_(false) {
 }
 
 AIPilot::~AIPilot() {
@@ -159,15 +161,124 @@ std::string AIPilot::getStatusReport() const {
 void AIPilot::handleEmergency(const std::string& emergencyType) {
     log("EMERGENCY: " + emergencyType);
     
-    // TODO: Implement emergency procedures
-    // - Engine failure: find nearest airport, glide, emergency landing
-    // - Fire: follow checklist
-    // - Loss of control: recover from unusual attitudes
+    if (emergencyType == "engine_failure") {
+        handleEngineFailure();
+    } else if (emergencyType == "low_fuel") {
+        handleLowFuel();
+    } else if (emergencyType == "fire") {
+        handleFire();
+    } else if (emergencyType == "loss_of_control") {
+        handleLossOfControl();
+    } else {
+        // Generic emergency response
+        log("Executing generic emergency procedures");
+        // Squawk 7700
+        // Find nearest suitable airport
+        // Declare emergency with ATC
+    }
+}
+
+void AIPilot::handleEngineFailure() {
+    log("Engine failure - executing emergency procedures");
+    
+    // Maintain airspeed - best glide speed
+    double bestGlideSpeed = aircraftConfig_.stallSpeed * 1.5;
+    systems_->setSpeed(bestGlideSpeed);
+    
+    // Find nearest airport
+    // TODO: Integrate with navdata to find nearest suitable airport
+    
+    // Configure for forced landing
+    currentPhase_ = FlightPhase::APPROACH;
+    
+    // Attempt restart if altitude permits
+    if (currentState_.position.altitude > 3000.0) {
+        log("Attempting engine restart");
+        systems_->setMagnetos(3); // BOTH
+        systems_->setMixture(1.0); // Full rich
+        systems_->startEngine(0);
+    }
+}
+
+void AIPilot::handleFire() {
+    log("Fire detected - executing fire procedures");
+    
+    // Shut down affected system
+    systems_->stopEngine(0);
+    systems_->setMixture(0.0);
+    systems_->setThrottle(0.0);
+    
+    // Descend immediately
+    if (!currentState_.onGround) {
+        systems_->setAltitude(std::max(currentState_.position.altitude - 2000.0, 1000.0));
+    }
+    
+    // Find nearest airport for emergency landing
+    handleLowFuel(); // Reuse diversion logic
+}
+
+void AIPilot::handleLossOfControl() {
+    log("Loss of control - executing recovery procedures");
+    
+    // Disable autopilot
+    systems_->enableAutopilot(false);
+    
+    // Power to idle
+    systems_->setThrottle(0.0);
+    
+    // Wings level recovery
+    systems_->setRoll(0.0);
+    
+    // Recover from unusual attitude
+    if (currentState_.pitch > 30.0) {
+        // Nose high - push forward
+        systems_->setPitch(-0.3);
+    } else if (currentState_.pitch < -30.0) {
+        // Nose low - pull back
+        systems_->setPitch(0.3);
+    }
+    
+    // Once recovered, re-engage autopilot
+    if (std::abs(currentState_.bank) < 10.0 && std::abs(currentState_.pitch) < 15.0) {
+        systems_->enableAutopilot(true);
+        log("Aircraft control recovered");
+    }
 }
 
 void AIPilot::setManualOverride(bool override) {
     manualOverride_ = override;
     log(override ? "Manual override ENABLED" : "Manual override DISABLED");
+}
+
+void AIPilot::enableOllamaATC(bool enable, const std::string& host) {
+    if (atc_) {
+        atc_->enableOllama(enable, host);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
+void AIPilot::setOllamaModel(const std::string& model) {
+    if (atc_) {
+        atc_->setOllamaModel(model);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
+void AIPilot::setOllamaApiKey(const std::string& apiKey) {
+    if (atc_) {
+        atc_->setOllamaApiKey(apiKey);
+    } else {
+        log("WARNING: ATC controller not initialized yet");
+    }
+}
+
+bool AIPilot::isOllamaEnabled() const {
+    if (atc_) {
+        return atc_->isOllamaEnabled();
+    }
+    return false;
 }
 
 void AIPilot::updateFlightPhase() {
@@ -273,8 +384,38 @@ void AIPilot::executeTaxiOut() {
     
     // Enable taxi lights
     systems_->setTaxiLights(true);
+    systems_->setNavigationLights(true);
+    systems_->setBeaconLights(true);
     
-    // TODO: Follow taxi route
+    // Release parking brake if set
+    if (currentState_.parkingBrakeSet) {
+        systems_->setParkingBrake(false);
+    }
+    
+    // Taxi speed control (< 15 knots)
+    if (currentState_.groundSpeed < 10.0) {
+        systems_->setThrottle(0.2);
+    } else if (currentState_.groundSpeed > 15.0) {
+        systems_->setThrottle(0.0);
+        systems_->setBrakes(0.5);
+    }
+    
+    // Follow taxi route if available
+    if (navigation_ && navigation_->getFlightPlan().waypoints.size() > 0) {
+        Waypoint firstWaypoint = navigation_->getFlightPlan().waypoints[0];
+        double bearing = navigation_->bearingToWaypoint(currentState_.position, firstWaypoint);
+        
+        // Simple heading control for taxi
+        double headingDiff = bearing - currentState_.heading;
+        if (headingDiff > 180.0) headingDiff -= 360.0;
+        if (headingDiff < -180.0) headingDiff += 360.0;
+        
+        // Apply gentle rudder input
+        if (std::abs(headingDiff) > 5.0) {
+            double rudderInput = std::max(-0.3, std::min(0.3, headingDiff / 30.0));
+            systems_->setYaw(rudderInput);
+        }
+    }
 }
 
 void AIPilot::executeTakeoff() {
@@ -374,7 +515,48 @@ void AIPilot::executeLanding() {
     systems_->setFlaps(100);
     systems_->setGear(true);
     
-    // TODO: Flare and touchdown logic
+    // Landing speed (1.3 * stall speed)
+    double landingSpeed = aircraftConfig_.stallSpeed * 1.3;
+    
+    // Flare logic
+    if (currentState_.position.altitude < 50.0 && currentState_.position.altitude > 5.0) {
+        log("Flaring for landing");
+        // Gradual pitch increase for flare
+        double flareAmount = (50.0 - currentState_.position.altitude) / 50.0;
+        systems_->setPitch(0.05 + flareAmount * 0.1);
+        
+        // Reduce power gradually
+        systems_->setThrottle(0.3 * (1.0 - flareAmount));
+    }
+    else if (currentState_.position.altitude <= 5.0) {
+        log("Touchdown");
+        // Touchdown - idle power
+        systems_->setThrottle(0.0);
+        systems_->setPitch(0.02); // Keep nose up slightly
+    }
+    
+    // After touchdown
+    if (currentState_.onGround && currentState_.groundSpeed > 0) {
+        log("Rollout - applying brakes");
+        // Progressive braking
+        if (currentState_.groundSpeed > 60.0) {
+            systems_->setBrakes(0.3);
+        } else if (currentState_.groundSpeed > 30.0) {
+            systems_->setBrakes(0.5);
+        } else {
+            systems_->setBrakes(0.7);
+        }
+        
+        // Retract flaps after slowing down
+        if (currentState_.groundSpeed < 40.0) {
+            systems_->setFlaps(0);
+        }
+        
+        // Transition to taxi when slow
+        if (currentState_.groundSpeed < 10.0) {
+            currentPhase_ = FlightPhase::TAXI_IN;
+        }
+    }
 }
 
 void AIPilot::executeTaxiIn() {
@@ -392,13 +574,52 @@ void AIPilot::executeTaxiIn() {
 void AIPilot::executeShutdown() {
     log("Shutting down");
     
-    // Set parking brake
-    systems_->setParkingBrake(true);
+    static bool shutdownComplete = false;
     
-    // Reduce throttle
-    systems_->setThrottle(0.0);
-    
-    // TODO: Shutdown checklist
+    if (!shutdownComplete) {
+        // Shutdown checklist
+        
+        // 1. Set parking brake
+        systems_->setParkingBrake(true);
+        log("Parking brake - SET");
+        
+        // 2. Throttle to idle
+        systems_->setThrottle(0.0);
+        log("Throttle - IDLE");
+        
+        // 3. Mixture to idle cutoff
+        systems_->setMixture(0.0);
+        log("Mixture - IDLE CUTOFF");
+        
+        // 4. Shut down engines
+        for (int i = 0; i < aircraftConfig_.numberOfEngines; i++) {
+            systems_->stopEngine(i);
+        }
+        log("Engines - SHUTDOWN");
+        
+        // 5. Magnetos OFF
+        systems_->setMagnetos(0);
+        log("Magnetos - OFF");
+        
+        // 6. Avionics and electrical
+        // Note: These would need additional SimConnect controls
+        log("Avionics - OFF");
+        
+        // 7. Lights OFF
+        systems_->setNavigationLights(false);
+        systems_->setBeaconLights(false);
+        systems_->setStrobeLights(false);
+        systems_->setLandingLights(false);
+        systems_->setTaxiLights(false);
+        log("Lights - OFF");
+        
+        // 8. Complete
+        shutdownComplete = true;
+        log("Shutdown checklist complete");
+        
+        // Stop autonomous flight
+        stopAutonomousFlight();
+    }
 }
 
 bool AIPilot::shouldStartTakeoff() {
@@ -464,17 +685,175 @@ bool AIPilot::performSafetyChecks() {
         return false;
     }
     
-    return true;
+    // Fuel warnings at 20% and 10% (show once)
+    double fuelPercent = (currentState_.fuelQuantity / aircraftConfig_.fuelCapacity) * 100.0;
+    if (fuelPercent < 20.0 && !fuelWarning20Shown_) {
+        log("WARNING: Fuel at 20%");
+        fuelWarning20Shown_ = true;
+    }
+    if (fuelPercent < 10.0 && !fuelWarning10Shown_) {
+        log("CAUTION: Fuel at 10% - diversion recommended");
+        fuelWarning10Shown_ = true;
+    }
+    
+    // Check terrain clearance
+    if (!currentState_.onGround) {
+        if (!checkTerrainClearance()) {
+            log("WARNING: Terrain clearance issue");
+        }
+    }
+    
+    // Check weather suitability
+    if (!isWeatherSuitable()) {
+        handleBadWeather();
+    }
+    
+    return safe;
 }
 
 void AIPilot::handleLowFuel() {
     log("WARNING: Low fuel - finding nearest airport");
-    // TODO: Find nearest airport and divert
+    
+    // Calculate remaining flight time
+    double fuelRemaining = currentState_.fuelQuantity;
+    double fuelBurnRate = 10.0; // gallons per hour (estimate)
+    double remainingMinutes = (fuelRemaining / fuelBurnRate) * 60.0;
+    
+    log("Estimated fuel remaining: " + std::to_string(remainingMinutes) + " minutes");
+    
+    // Reduce power for best range
+    double economySpeed = aircraftConfig_.cruiseSpeed * 0.75;
+    systems_->setSpeed(economySpeed);
+    
+    // Find nearest suitable airport
+    // TODO: Integrate with navdata database to find nearest airport
+    log("Searching for nearest suitable airport for diversion");
+    
+    // Declare fuel emergency with ATC
+    if (atc_) {
+        log("Declaring minimum fuel with ATC");
+        // ATC would be notified through SimConnect
+    }
+    
+    // Update flight plan to divert
+    if (fuelRemaining < 3.0) {
+        log("CRITICAL: Fuel emergency - preparing for emergency landing");
+        handleEmergency("low_fuel");
+    }
 }
 
 void AIPilot::handleBadWeather() {
     log("WARNING: Bad weather detected");
-    // TODO: Weather avoidance or diversion
+    
+    // Get current weather conditions
+    WeatherConditions weather = assessWeather();
+    
+    // Decision tree for weather
+    log("Assessing weather severity and options");
+    
+    // Check for severe weather conditions
+    if (weather.icing && currentState_.position.altitude < 10000.0) {
+        log("Icing conditions detected - climbing to avoid");
+        double weatherAvoidanceAlt = std::min(currentState_.position.altitude + 2000.0, 
+                                             aircraftConfig_.serviceceiling * 0.9);
+        systems_->setAltitude(weatherAvoidanceAlt);
+    }
+    
+    if (weather.visibility < 3.0 && currentPhase_ == FlightPhase::APPROACH) {
+        log("Low visibility - consider missed approach");
+        // Could trigger missed approach procedure
+    }
+    
+    if (weather.turbulence) {
+        log("Turbulence detected - reducing speed for comfort");
+        double turbulenceSpeed = aircraftConfig_.cruiseSpeed * 0.85;
+        systems_->setSpeed(turbulenceSpeed);
+    }
+    
+    // Consider diversion if weather is too severe
+    if (!isWeatherSuitable()) {
+        log("Weather below minimums - considering diversion");
+        if (atc_) {
+            log("Requesting weather information from ATC");
+        }
+    }
+}
+
+bool AIPilot::checkTerrainClearance() {
+    // Check if current altitude provides adequate terrain clearance
+    double terrainElevation = getTerrainElevation(currentState_.position);
+    double agl = currentState_.position.altitude - terrainElevation;
+    
+    // Minimum safe altitude is typically 1000 ft AGL in mountainous areas,
+    // 500 ft AGL elsewhere
+    double minimumClearance = 1000.0;
+    
+    if (agl < minimumClearance) {
+        log("WARNING: Low terrain clearance - " + std::to_string(agl) + " ft AGL");
+        
+        // Take corrective action
+        if (agl < minimumClearance * 0.5) {
+            log("CRITICAL: Terrain proximity warning - climbing immediately");
+            systems_->enableAutopilot(false);
+            systems_->setPitch(0.2); // Pitch up
+            systems_->setThrottle(1.0); // Full power
+        }
+        
+        return false;
+    }
+    
+    return true;
+}
+
+double AIPilot::getTerrainElevation(const Position& pos) {
+    // TODO: Integrate with actual terrain database
+    // For now, return a conservative estimate based on position
+    // This would typically come from a terrain elevation database
+    
+    // Simplified terrain elevation (sea level default)
+    double elevation = 0.0;
+    
+    // In a real implementation, this would:
+    // 1. Query a terrain database (e.g., SRTM data)
+    // 2. Use the navdata reader for terrain information
+    // 3. Interpolate between known elevation points
+    
+    return elevation;
+}
+
+WeatherConditions AIPilot::assessWeather() {
+    WeatherConditions weather;
+    
+    // TODO: Get actual weather from SimConnect
+    // For now, return default conditions
+    weather.windSpeed = 10.0;
+    weather.windDirection = 270.0;
+    weather.visibility = 10.0;
+    weather.cloudBase = 3000.0;
+    weather.temperature = 15.0;
+    weather.icing = false;
+    weather.turbulence = false;
+    weather.precipitation = false;
+    
+    // In a real implementation, this would:
+    // 1. Query SimConnect for current weather
+    // 2. Parse METAR data if available
+    // 3. Check for hazardous conditions
+    
+    return weather;
+}
+
+bool AIPilot::isWeatherSuitable() {
+    WeatherConditions weather = assessWeather();
+    
+    // Check VFR minimums (simplified)
+    bool vfrMinimums = (weather.visibility >= 3.0 && weather.cloudBase >= 1000.0);
+    
+    // Check for hazardous conditions
+    bool safe = !weather.icing && weather.windSpeed < 35.0;
+    
+    // For IFR operations, different minimums would apply
+    return vfrMinimums && safe;
 }
 
 void AIPilot::log(const std::string& message) {

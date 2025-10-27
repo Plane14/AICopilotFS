@@ -67,6 +67,10 @@ private:
     // Great circle calculations
     double greatCircleDistance(const Position& p1, const Position& p2) const;
     double greatCircleBearing(const Position& p1, const Position& p2) const;
+    
+    // Flight plan parsers
+    bool parsePLN(std::ifstream& file);
+    bool parseFMS(std::ifstream& file);
 };
 
 } // namespace AICopilot

@@ -17,6 +17,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/aicopilot/include)
 
+# Find required packages for Ollama integration
+find_package(CURL REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(JSONCPP REQUIRED jsoncpp)
+
 # Source files
 set(AICOPILOT_SOURCES
     aicopilot/src/parsers/config_parser.cpp
@@ -25,6 +30,7 @@ set(AICOPILOT_SOURCES
     aicopilot/src/systems/aircraft_systems.cpp
     aicopilot/src/navigation/navigation.cpp
     aicopilot/src/atc/atc_controller.cpp
+    aicopilot/src/atc/ollama_client.cpp
     aicopilot/src/ai/ai_pilot.cpp
 )
 
@@ -37,11 +43,16 @@ set(AICOPILOT_HEADERS
     aicopilot/include/aircraft_systems.h
     aicopilot/include/navigation.h
     aicopilot/include/atc_controller.h
+    aicopilot/include/ollama_client.h
     aicopilot/include/ai_pilot.h
 )
 
 # Create library
 add_library(aicopilot STATIC ${AICOPILOT_SOURCES} ${AICOPILOT_HEADERS})
+
+# Link required libraries for Ollama
+target_link_libraries(aicopilot ${CURL_LIBRARIES} ${JSONCPP_LIBRARIES})
+target_include_directories(aicopilot PRIVATE ${JSONCPP_INCLUDE_DIRS})
 
 # SimConnect SDK paths (adjust these based on your installation)
 # For MSFS2024
@@ -64,6 +75,9 @@ endif()
 if(BUILD_EXAMPLES)
     add_executable(aicopilot_example aicopilot/examples/main_example.cpp)
     target_link_libraries(aicopilot_example aicopilot)
+    
+    add_executable(aicopilot_advanced aicopilot/examples/advanced_example.cpp)
+    target_link_libraries(aicopilot_advanced aicopilot)
 endif()
 
 # Build tests
@@ -83,7 +97,7 @@ install(FILES ${AICOPILOT_HEADERS}
 )
 
 if(BUILD_EXAMPLES)
-    install(TARGETS aicopilot_example
+    install(TARGETS aicopilot_example aicopilot_advanced
         RUNTIME DESTINATION bin
     )
 endif()

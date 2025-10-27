@@ -63,6 +63,12 @@ public:
     // Manual override (temporarily disable AI)
     void setManualOverride(bool override);
     
+    // Ollama AI integration for ATC
+    void enableOllamaATC(bool enable, const std::string& host = "http://localhost:11434");
+    void setOllamaModel(const std::string& model);
+    void setOllamaApiKey(const std::string& apiKey);
+    bool isOllamaEnabled() const;
+    
 private:
     // Core components
     std::shared_ptr<SimConnectWrapper> simConnect_;
@@ -76,6 +82,10 @@ private:
     bool manualOverride_;
     FlightPhase currentPhase_;
     AircraftState currentState_;
+    
+    // Fuel warning flags
+    bool fuelWarning20Shown_;
+    bool fuelWarning10Shown_;
     
     // Phase management
     void updateFlightPhase();
@@ -108,6 +118,17 @@ private:
     bool performSafetyChecks();
     void handleLowFuel();
     void handleBadWeather();
+    void handleEngineFailure();
+    void handleFire();
+    void handleLossOfControl();
+    
+    // Terrain awareness
+    bool checkTerrainClearance();
+    double getTerrainElevation(const Position& pos);
+    
+    // Weather assessment
+    WeatherConditions assessWeather();
+    bool isWeatherSuitable();
     
     // Logging
     void log(const std::string& message);

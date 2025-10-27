@@ -95,6 +95,7 @@ private:
     bool fuelWarning20Shown_;
     bool fuelWarning10Shown_;
     bool airportOpsInitialized_;
+    AirportInfo cachedAirportInfo_;
 
     // Phase management
     void updateFlightPhase();
@@ -145,6 +146,7 @@ private:
     // Airport operations helpers
     void initializeAirportOperations();
     void setupDefaultAirportLayout();
+    bool fetchAirportInfo(const std::string& icao, AirportInfo& infoOut);
 };
 
 } // namespace AICopilot

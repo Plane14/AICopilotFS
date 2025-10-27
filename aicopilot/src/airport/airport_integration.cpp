@@ -53,9 +53,22 @@ SimConnectBridge::SimConnectData SimConnectBridge::get_user_aircraft_state() con
 void SimConnectBridge::transmit_taxi_clearance(int aircraft_object_id,
                                                const std::vector<int>& taxiway_node_sequence)
 {
-    (void)aircraft_object_id;
-    (void)taxiway_node_sequence;
-    // TODO: Implement taxi clearance transmission via SimConnect custom events.
+    if (taxiway_node_sequence.empty()) {
+        return;
+    }
+
+    if (auto sim = simconnect_) {
+        // TODO: Real AI aircraft taxi routing via SimConnect client events.
+        (void)sim;
+    }
+
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    ai_commands_[aircraft_object_id] = AICommand{
+        taxiway_node_sequence,
+        std::nullopt,
+        std::nullopt,
+        std::chrono::system_clock::now()
+    };
 }
 
 void SimConnectBridge::transmit_altitude_clearance(int aircraft_object_id, double altitude_feet) {
@@ -67,6 +80,11 @@ void SimConnectBridge::transmit_altitude_clearance(int aircraft_object_id, doubl
         simconnect_->setAutopilotAltitude(altitude_feet);
     }
     // For AI aircraft, integration with custom SimConnect events is required.
+
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    auto& command = ai_commands_[aircraft_object_id];
+    command.target_altitude_feet = altitude_feet;
+    command.timestamp = std::chrono::system_clock::now();
 }
 
 void SimConnectBridge::transmit_heading_instruction(int aircraft_object_id, double heading_true) {
@@ -78,6 +96,11 @@ void SimConnectBridge::transmit_heading_instruction(int aircraft_object_id, doub
         simconnect_->setAutopilotHeading(heading_true);
     }
     // For AI aircraft, integration with custom SimConnect events is required.
+
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    auto& command = ai_commands_[aircraft_object_id];
+    command.target_heading_true = heading_true;
+    command.timestamp = std::chrono::system_clock::now();
 }
 
 SimConnectBridge::SimConnectData SimConnectBridge::convert_state(const AircraftState& state) {
@@ -102,6 +125,15 @@ SimConnectBridge::SimConnectData SimConnectBridge::convert_state(const AircraftS
     return data;
 }
 
+std::optional<SimConnectBridge::AICommand> SimConnectBridge::get_last_ai_command(int aircraft_id) const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    auto it = ai_commands_.find(aircraft_id);
+    if (it == ai_commands_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 // ===============================================
 // AirportOperationSystem
 // ===============================================
@@ -117,15 +149,14 @@ AirportOperationSystem::AirportOperationSystem(std::shared_ptr<AirportManager> m
     , holding_pattern_gen_(std::make_unique<HoldingPatternGenerator>())
     , collision_check_interval_ms_(100.0)
     , sequencing_update_interval_ms_(1000.0)
+    , collision_elapsed_ms_(0.0)
+    , sequencing_elapsed_ms_(0.0)
 {
     if (!airport_manager_) {
         airport_manager_ = std::make_shared<AirportManager>();
     }
 
     conflict_resolver_->set_maneuver_selector(maneuver_selector_.get());
-    auto now = std::chrono::system_clock::now();
-    last_collision_check_ = now;
-    last_sequencing_update_ = now;
 }
 
 void AirportOperationSystem::set_simconnect_bridge(std::shared_ptr<SimConnectBridge> bridge) {
@@ -157,8 +188,6 @@ void AirportOperationSystem::load_airport_data(const std::vector<Runway>& runway
 }
 
 void AirportOperationSystem::update(double delta_time_seconds) {
-    (void)delta_time_seconds;
-
     const auto* airport = airport_manager_->get_airport_const();
     if (!airport) {
         return;
@@ -166,18 +195,16 @@ void AirportOperationSystem::update(double delta_time_seconds) {
 
     auto now = std::chrono::system_clock::now();
 
-    auto ms_since_collision_check = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - last_collision_check_).count();
-    if (ms_since_collision_check >= collision_check_interval_ms_) {
+    collision_elapsed_ms_ += delta_time_seconds * 1000.0;
+    if (collision_elapsed_ms_ >= collision_check_interval_ms_) {
         update_collision_system();
-        last_collision_check_ = now;
+        collision_elapsed_ms_ = 0.0;
     }
 
-    auto ms_since_sequencing = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now - last_sequencing_update_).count();
-    if (ms_since_sequencing >= sequencing_update_interval_ms_) {
+    sequencing_elapsed_ms_ += delta_time_seconds * 1000.0;
+    if (sequencing_elapsed_ms_ >= sequencing_update_interval_ms_) {
         update_atc_sequencing();
-        last_sequencing_update_ = now;
+        sequencing_elapsed_ms_ = 0.0;
     }
 }
 

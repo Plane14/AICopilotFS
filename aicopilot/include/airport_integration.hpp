@@ -10,6 +10,7 @@
 #include <functional>
 #include <mutex>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -74,6 +75,13 @@ public:
 
     SimConnectData get_user_aircraft_state() const;
 
+    struct AICommand {
+        std::vector<int> taxiway_route;
+        std::optional<double> target_heading_true;
+        std::optional<double> target_altitude_feet;
+        std::chrono::system_clock::time_point timestamp;
+    };
+
     void transmit_taxi_clearance(int aircraft_object_id,
                                  const std::vector<int>& taxiway_node_sequence);
 
@@ -82,6 +90,7 @@ public:
     void transmit_heading_instruction(int aircraft_object_id, double heading_true);
 
     std::shared_ptr<SimConnectWrapper> get_simconnect() const { return simconnect_; }
+    std::optional<AICommand> get_last_ai_command(int aircraft_id) const;
 
 private:
     static constexpr int kUserAircraftId = 0;
@@ -90,6 +99,7 @@ private:
     AircraftStateCallback state_callback_;
     SimConnectData last_user_state_;
     mutable std::mutex data_mutex_;
+    std::map<int, AICommand> ai_commands_;
 
     static SimConnectData convert_state(const AircraftState& state);
 };
@@ -127,11 +137,14 @@ public:
                                                     bool is_departure);
 
     void handle_atc_instruction(int aircraft_id, const std::string& instruction);
+    void update_ai_traffic_state(const SimConnectBridge::SimConnectData& data);
+    void clear_ai_traffic(int aircraft_id);
 
     const ClearanceStateMachine* get_clearance_state(int aircraft_id) const;
 
     AirportManager* get_airport_manager() { return airport_manager_.get(); }
     const AirportManager* get_airport_manager() const { return airport_manager_.get(); }
+    std::shared_ptr<SimConnectBridge> get_simconnect_bridge() const { return simconnect_bridge_; }
 
 private:
     std::shared_ptr<AirportManager> airport_manager_;
@@ -146,12 +159,11 @@ private:
     std::unique_ptr<HoldingPatternGenerator> holding_pattern_gen_;
 
     std::map<int, SimConnectBridge::SimConnectData> aircraft_states_;
-    std::map<int, ClearanceStateMachine> aircraft_clearances_;
 
-    std::chrono::system_clock::time_point last_collision_check_;
-    std::chrono::system_clock::time_point last_sequencing_update_;
     double collision_check_interval_ms_;
     double sequencing_update_interval_ms_;
+    double collision_elapsed_ms_;
+    double sequencing_elapsed_ms_;
 
     static constexpr int kUserAircraftId = 0;
 

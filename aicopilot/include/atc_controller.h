@@ -14,6 +14,7 @@
 #include "simconnect_wrapper.h"
 #include "ollama_client.h"
 #include <memory>
+#include <optional>
 #include <queue>
 
 namespace AICopilot {
@@ -29,6 +30,12 @@ class AirportOperationSystem;
  */
 class ATCController {
 public:
+    struct ParsedInstruction {
+        std::optional<double> target_altitude_feet;
+        std::optional<double> target_heading_degrees;
+        std::optional<double> target_speed_knots;
+    };
+
     ATCController(std::shared_ptr<SimConnectWrapper> simConnect);
     ~ATCController();
     
@@ -49,6 +56,9 @@ public:
 
     // Connect to airport operations system for ground coordination
     void setAirportOperations(Integration::AirportOperationSystem* operations);
+
+    // Analyze an instruction without executing side-effects (test helper)
+    static ParsedInstruction analyzeInstruction(const std::string& instruction);
     
     // Get pending instructions
     std::vector<std::string> getPendingInstructions() const;
@@ -92,6 +102,7 @@ private:
     // Parse ATC instruction
     void parseInstruction(const std::string& instruction);
     void handleInstruction(const std::string& instruction);
+    void applyParsedInstruction(const ParsedInstruction& instruction, const std::string& originalText);
     
     // Context analysis
     bool isRelevantForPhase(const std::string& option, FlightPhase phase);

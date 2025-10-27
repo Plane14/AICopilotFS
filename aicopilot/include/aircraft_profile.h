@@ -112,6 +112,7 @@ struct HelicopterData {
     double cruiseSpeed;         // knots
     double vne;                 // never exceed speed (knots)
     double autorotationSpeed;   // knots
+    double normalRotorRPM;      // normal operating rotor RPM
     bool hasAutopilot;
     bool hasSAS;               // Stability Augmentation System
 };

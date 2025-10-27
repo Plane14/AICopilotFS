@@ -84,6 +84,14 @@ struct AircraftState {
     bool parkingBrakeSet;
     bool gearDown;
     int flapsPosition;         // 0-100%
+    
+    // Electrical system data
+    bool masterBattery;        // Battery master switch
+    bool masterAlternator;     // Alternator master switch
+    double batteryVoltage;     // Volts
+    double batteryLoad;        // Amperes
+    double generatorVoltage;   // Volts (alternator/generator output)
+    double generatorLoad;      // Amperes
 };
 
 // Autopilot state

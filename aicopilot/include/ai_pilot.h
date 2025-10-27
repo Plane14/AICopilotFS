@@ -16,6 +16,8 @@
 #include "atc_controller.h"
 #include "navigation.h"
 #include "aircraft_config.h"
+#include "navdata_provider.h"
+#include "weather_system.h"
 #include <memory>
 #include <string>
 
@@ -75,6 +77,8 @@ private:
     std::unique_ptr<AircraftSystems> systems_;
     std::unique_ptr<ATCController> atc_;
     std::unique_ptr<Navigation> navigation_;
+    std::unique_ptr<INavdataProvider> navdataProvider_;
+    std::unique_ptr<WeatherSystem> weatherSystem_;
     AircraftConfig aircraftConfig_;
     
     // State

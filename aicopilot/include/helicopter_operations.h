@@ -44,6 +44,15 @@ struct HoverState {
     double verticalSpeed;   // feet per minute
 };
 
+// Autorotation state
+struct AutorotationState {
+    double targetCollective;    // 0.0 to 1.0
+    double currentRPM;          // rotor RPM
+    double altitudeAGL;         // feet above ground
+    double descentRate;         // feet per minute
+    bool inFlare;               // true if in flare phase
+};
+
 /**
  * Helicopter-Specific Operations
  */
@@ -84,6 +93,10 @@ public:
     bool initiateAutorotation();
     void maintainAutorotation(const AircraftState& state);
     double getOptimalAutorotationSpeed() const;
+    bool isInAutorotation() const;
+    AutorotationState getAutorotationState() const;
+    void abortAutorotation();
+    bool validateAutorotationEntry(const AircraftState& state) const;
     
     // Calculate hover performance
     bool canHoverAtAltitude(double altitudeMSL, double temperature) const;
@@ -130,11 +143,14 @@ private:
     // Autorotation parameters
     bool autorotationActive_ = false;
     double autorotationStartAltitude_ = 0.0;
+    AutorotationState autorotationState_;
     
     // Helper methods
     void updateMode(const AircraftState& state);
     bool isHoverStable(const HoverState& state) const;
     double calculateHoverPower(double altitude, double temperature) const;
+    double calculateFlareAltitude(double descentRate) const;
+    double getGroundElevation(const Position& position) const;
 };
 
 } // namespace AICopilot

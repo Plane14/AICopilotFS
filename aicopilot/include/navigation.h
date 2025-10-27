@@ -60,6 +60,26 @@ public:
     // Calculate time to destination (minutes)
     double timeToDestination(double groundSpeed) const;
     
+    // Update waypoint coordinates from external source
+    // This should be called after creating a flight plan to populate actual coordinates
+    // Returns true if waypoint was found and updated
+    bool updateWaypointPosition(const std::string& waypointId, const Position& position);
+    
+    // Validate flight plan waypoints have valid coordinates
+    bool validateFlightPlan() const;
+    
+    // Add waypoint to current flight plan
+    void addWaypoint(const Waypoint& waypoint);
+    
+    // Insert waypoint at specific index
+    void insertWaypoint(size_t index, const Waypoint& waypoint);
+    
+    // Remove waypoint by index
+    void removeWaypoint(size_t index);
+    
+    // Calculate total route distance (nautical miles)
+    double getTotalDistance() const;
+    
 private:
     FlightPlan flightPlan_;
     size_t activeWaypointIndex_ = 0;

@@ -198,7 +198,74 @@ void AircraftSystems::checkEngines() {
 }
 
 void AircraftSystems::checkElectrical() {
-    // TODO: Check electrical system
+    // Check if battery master is on
+    if (!currentState_.masterBattery && !currentState_.onGround) {
+        warnings_.push_back("CRITICAL: Battery master switch is OFF during flight");
+    }
+    
+    // Check battery voltage - typical aircraft battery is 12V or 24V
+    // Low voltage threshold: < 11V for 12V system, < 22V for 24V system
+    if (currentState_.masterBattery) {
+        if (currentState_.batteryVoltage < 11.0 && currentState_.batteryVoltage > 0.0) {
+            warnings_.push_back("CRITICAL: Battery voltage critically low (" + 
+                              std::to_string(static_cast<int>(currentState_.batteryVoltage)) + "V)");
+        } else if (currentState_.batteryVoltage < 12.5 && currentState_.batteryVoltage >= 11.0) {
+            warnings_.push_back("WARNING: Battery voltage low (" + 
+                              std::to_string(static_cast<int>(currentState_.batteryVoltage)) + "V)");
+        } else if (currentState_.batteryVoltage < 22.0 && currentState_.batteryVoltage >= 20.0) {
+            // For 24V systems
+            warnings_.push_back("CRITICAL: Battery voltage critically low (" + 
+                              std::to_string(static_cast<int>(currentState_.batteryVoltage)) + "V)");
+        } else if (currentState_.batteryVoltage < 24.5 && currentState_.batteryVoltage >= 22.0) {
+            warnings_.push_back("WARNING: Battery voltage low (" + 
+                              std::to_string(static_cast<int>(currentState_.batteryVoltage)) + "V)");
+        }
+    }
+    
+    // Check alternator/generator status during flight
+    if (!currentState_.onGround && currentState_.engineRPM > 800) {
+        // Engine is running, alternator should be providing power
+        if (!currentState_.masterAlternator) {
+            warnings_.push_back("WARNING: Alternator is OFF with engine running");
+        }
+        
+        // Check generator voltage output
+        if (currentState_.masterAlternator && currentState_.generatorVoltage < 13.5) {
+            // For 12V system, alternator should output 13.5-14.5V
+            if (currentState_.batteryVoltage < 20.0) { // Assume 12V system
+                warnings_.push_back("WARNING: Alternator output low - possible alternator failure");
+            }
+        } else if (currentState_.masterAlternator && currentState_.generatorVoltage < 27.0) {
+            // For 24V system, alternator should output 27-28.5V
+            if (currentState_.batteryVoltage >= 20.0) { // Assume 24V system
+                warnings_.push_back("WARNING: Alternator output low - possible alternator failure");
+            }
+        }
+    }
+    
+    // Check for excessive electrical load
+    if (currentState_.batteryLoad > 60.0) {
+        warnings_.push_back("WARNING: High electrical load (" + 
+                          std::to_string(static_cast<int>(currentState_.batteryLoad)) + "A)");
+    } else if (currentState_.batteryLoad > 80.0) {
+        warnings_.push_back("CRITICAL: Excessive electrical load (" + 
+                          std::to_string(static_cast<int>(currentState_.batteryLoad)) + "A) - risk of electrical failure");
+    }
+    
+    // Check if battery is discharging in flight (alternator not keeping up)
+    if (!currentState_.onGround && currentState_.masterBattery && currentState_.masterAlternator) {
+        // If alternator is on but battery voltage is dropping
+        if (currentState_.engineRPM > 1000 && currentState_.batteryVoltage < 12.0 && currentState_.batteryVoltage > 0.0) {
+            warnings_.push_back("CRITICAL: Battery discharging despite alternator running - electrical system failure");
+        } else if (currentState_.engineRPM > 1000 && currentState_.batteryVoltage < 22.0 && currentState_.batteryVoltage >= 20.0) {
+            warnings_.push_back("CRITICAL: Battery discharging despite alternator running - electrical system failure");
+        }
+    }
+    
+    // Check for complete electrical failure
+    if (currentState_.masterBattery && currentState_.batteryVoltage < 5.0 && currentState_.batteryVoltage > 0.0) {
+        warnings_.push_back("CRITICAL: COMPLETE ELECTRICAL FAILURE - Emergency procedures required");
+    }
 }
 
 } // namespace AICopilot

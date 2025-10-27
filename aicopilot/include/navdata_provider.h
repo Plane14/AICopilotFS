@@ -19,6 +19,7 @@
 #define NAVDATA_PROVIDER_H
 
 #include "aicopilot_types.h"
+#include "airport_data.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -37,6 +38,12 @@ struct AirportInfo {
     int longestRunway;          // Longest runway length in feet
     bool towered;               // Has control tower
     std::vector<std::string> runways; // List of runway identifiers
+};
+
+struct AirportLayout {
+    std::vector<Airport::Runway> runways;
+    Airport::TaxiwayNetwork taxiwayNetwork;
+    std::vector<Airport::ParkingPosition> parkingPositions;
 };
 
 /**
@@ -83,6 +90,7 @@ public:
      * @return true if airport found
      */
     virtual bool getAirportByICAO(const std::string& icao, AirportInfo& info) = 0;
+    virtual bool getAirportLayout(const std::string& icao, AirportLayout& layout) = 0;
     
     /**
      * Get airports within a radius
@@ -134,6 +142,7 @@ public:
     bool isReady() const override;
     
     bool getAirportByICAO(const std::string& icao, AirportInfo& info) override;
+    bool getAirportLayout(const std::string& icao, AirportLayout& layout) override;
     std::vector<AirportInfo> getAirportsNearby(const Position& center, double radiusNM) override;
     bool getNavaidByID(const std::string& id, NavaidInfo& info) override;
     std::vector<NavaidInfo> getNavaidsNearby(const Position& center, 
@@ -167,6 +176,7 @@ public:
     bool isReady() const override;
     
     bool getAirportByICAO(const std::string& icao, AirportInfo& info) override;
+    bool getAirportLayout(const std::string& icao, AirportLayout& layout) override;
     std::vector<AirportInfo> getAirportsNearby(const Position& center, double radiusNM) override;
     bool getNavaidByID(const std::string& id, NavaidInfo& info) override;
     std::vector<NavaidInfo> getNavaidsNearby(const Position& center, 

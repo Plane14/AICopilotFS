@@ -63,7 +63,11 @@ bool HelicopterOperations::initiateAutorotation() {
 }
 
 void HelicopterOperations::maintainAutorotation(const AircraftState& state) {
-    // Maintain optimal autorotation speed
+    // TODO: Implement autorotation control logic
+    // - Maintain optimal rotor RPM
+    // - Control descent rate with collective
+    // - Align with wind direction
+    // - Prepare for touchdown flare
 }
 
 double HelicopterOperations::getOptimalAutorotationSpeed() const {

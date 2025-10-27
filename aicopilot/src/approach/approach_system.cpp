@@ -121,6 +121,10 @@ double ApproachSystem::getHeightAboveThreshold(const Position& pos, double altit
 
 // Private methods
 
+namespace {
+    constexpr double FEET_PER_NAUTICAL_MILE = 6076.0;
+}
+
 void ApproachSystem::updatePhase(const Position& pos) {
     double distance = getDistanceToThreshold(pos);
     
@@ -140,7 +144,7 @@ double ApproachSystem::calculateLocalizerDeviation(const Position& pos, double h
 
 double ApproachSystem::calculateGlideslopeDeviation(const Position& pos, double altitude) const {
     double targetAltitude = currentApproach_.ilsData.thresholdPosition.altitude +
-                           getDistanceToThreshold(pos) * 6076.0 * std::tan(currentApproach_.ilsData.glideslopeAngle * M_PI / 180.0);
+                           getDistanceToThreshold(pos) * FEET_PER_NAUTICAL_MILE * std::tan(currentApproach_.ilsData.glideslopeAngle * M_PI / 180.0);
     double deviation = (altitude - targetAltitude) / 100.0;
     return deviation;
 }

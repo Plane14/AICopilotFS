@@ -91,8 +91,8 @@ std::vector<Waypoint> WeatherSystem::calculateAvoidanceRoute(
         avoid.id = "AVOID";
         avoid.position.latitude = (start.latitude + end.latitude) / 2.0 + 0.5;
         avoid.position.longitude = (start.longitude + end.longitude) / 2.0 + 0.5;
-        avoid.position.altitude = altitude;
         avoid.altitude = altitude;
+        avoid.position.altitude = altitude;
         route.push_back(avoid);
     }
     

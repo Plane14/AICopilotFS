@@ -117,7 +117,11 @@ std::vector<double> MLDecisionSystem::extractFeatures(const DecisionContext& con
 
 std::vector<double> MLDecisionSystem::extractPhaseFeatures(FlightPhase phase) const {
     std::vector<double> features(10, 0.0);
-    features[static_cast<int>(phase)] = 1.0;
+    int phaseIndex = static_cast<int>(phase);
+    // Ensure index is within bounds
+    if (phaseIndex >= 0 && phaseIndex < static_cast<int>(features.size())) {
+        features[phaseIndex] = 1.0;
+    }
     return features;
 }
 

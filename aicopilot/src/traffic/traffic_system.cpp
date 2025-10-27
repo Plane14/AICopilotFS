@@ -107,7 +107,7 @@ TrafficSystem::AvoidanceManeuver TrafficSystem::calculateAvoidanceManeuver(
 bool TrafficSystem::isThreat(const TrafficTarget& target) const {
     // Check if traffic is a threat based on range and closure
     if (target.range > TA_RANGE) return false;
-    if (target.closureRate < 0) return false;  // Diverging
+    if (target.closureRate < 0) return false;  // Aircraft are moving apart (diverging)
     return true;
 }
 

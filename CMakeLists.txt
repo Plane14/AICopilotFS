@@ -178,7 +178,15 @@ set(AICOPILOT_SOURCES
     aicopilot/src/approach/approach_system.cpp
     aicopilot/src/profiles/aircraft_profile.cpp
     aicopilot/src/voice/voice_interface.cpp
+    aicopilot/src/voice_input.cpp
+    aicopilot/src/speech_recognizer.cpp
+    aicopilot/src/voice_interpreter.cpp
+    aicopilot/src/voice_output.cpp
     aicopilot/src/ml/ml_decision_system.cpp
+    aicopilot/src/ml/ml_decision_engine.cpp
+    aicopilot/src/ml/ml_features.cpp
+    aicopilot/src/ml/ml_models.cpp
+    aicopilot/src/ml/ml_learning.cpp
     aicopilot/src/helicopter/helicopter_operations.cpp
     aicopilot/src/airport/airport_manager.cpp
     aicopilot/src/airport/airport_integration.cpp
@@ -201,7 +209,15 @@ set(AICOPILOT_HEADERS
     aicopilot/include/approach_system.h
     aicopilot/include/aircraft_profile.h
     aicopilot/include/voice_interface.h
+    aicopilot/include/voice_input.hpp
+    aicopilot/include/speech_recognizer.hpp
+    aicopilot/include/voice_interpreter.hpp
+    aicopilot/include/voice_output.hpp
     aicopilot/include/ml_decision_system.h
+    aicopilot/include/ml_decision_engine.hpp
+    aicopilot/include/ml_features.hpp
+    aicopilot/include/ml_models.hpp
+    aicopilot/include/ml_learning.hpp
     aicopilot/include/helicopter_operations.h
     aicopilot/include/airport_manager.h
     aicopilot/include/airport_integration.hpp
@@ -246,7 +262,85 @@ endif()
 # Build tests
 if(BUILD_TESTS)
     enable_testing()
-    # Add test files here when created
+    
+    # Include Google Test
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+    )
+    # For Windows builds
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    
+    # Phase 1 Critical Tests (20 core functions)
+    set(PHASE1_TEST_SOURCES
+        aicopilot/tests/phase1/test_framework_setup.cpp
+        aicopilot/tests/phase1/priority1_tests.cpp
+    )
+    
+    # Phase 2+ Tests (additional functionality)
+    set(PHASE2_TEST_SOURCES
+        aicopilot/tests/unit/navigation_test.cpp
+        aicopilot/tests/unit/weather_system_test.cpp
+        aicopilot/tests/unit/collision_avoidance_test.cpp
+        aicopilot/tests/unit/aircraft_systems_test.cpp
+        aicopilot/tests/unit/ml_decision_system_test.cpp
+        aicopilot/tests/unit/terrain_awareness_test.cpp
+        aicopilot/tests/unit/clearance_state_machine_test.cpp
+        aicopilot/tests/test_voice_interface.cpp
+    )
+    
+    # Create Phase 1 test executable (Priority: Core functionality)
+    add_executable(aicopilot_phase1_tests ${PHASE1_TEST_SOURCES})
+    
+    target_link_libraries(aicopilot_phase1_tests
+        PRIVATE
+            aicopilot
+            gtest
+            gtest_main
+            gmock
+    )
+    
+    target_include_directories(aicopilot_phase1_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/aicopilot/include
+        ${CMAKE_SOURCE_DIR}/aicopilot/tests
+    )
+    
+    # Create Phase 2+ test executable (if all sources exist)
+    if(EXISTS "${CMAKE_SOURCE_DIR}/aicopilot/tests/unit/navigation_test.cpp")
+        add_executable(aicopilot_tests ${PHASE2_TEST_SOURCES})
+        
+        target_link_libraries(aicopilot_tests
+            PRIVATE
+                aicopilot
+                gtest
+                gtest_main
+        )
+        
+        target_include_directories(aicopilot_tests PRIVATE
+            ${CMAKE_SOURCE_DIR}/aicopilot/include
+            ${CMAKE_SOURCE_DIR}/aicopilot/tests
+        )
+        
+        gtest_discover_tests(aicopilot_tests)
+    endif()
+    
+    # Register Phase 1 tests
+    gtest_discover_tests(aicopilot_phase1_tests)
+    
+    message(STATUS "Test infrastructure configured:")
+    message(STATUS "  - Google Test v1.14.0 with GMock")
+    message(STATUS "  - PHASE 1 (CRITICAL): 20 core function tests")
+    message(STATUS "    • Navigation (5 tests): distance, bearing, waypoint, coordinates")
+    message(STATUS "    • Aircraft Systems (3 tests): throttle, flaps, control surfaces")
+    message(STATUS "    • Weather System (3 tests): conditions, wind, suitability")
+    message(STATUS "    • Approach System (3 tests): procedures, ILS, phases")
+    message(STATUS "    • Terrain Awareness (3 tests): altitude, warnings, safety")
+    message(STATUS "    • SimConnect (2 tests): connection, state")
+    message(STATUS "    • Data Validation (3 tests): NaN, infinity, sanitization")
+    message(STATUS "  - Run Phase 1: aicopilot_phase1_tests.exe")
+    message(STATUS "  - Run all: ctest")
 endif()
 
 # Installation

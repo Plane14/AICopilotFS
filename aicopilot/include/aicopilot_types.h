@@ -100,12 +100,14 @@ struct AutopilotState {
     bool headingHold;
     bool altitudeHold;
     bool speedHold;
+    bool verticalSpeedHold;
     bool navMode;
     bool approachMode;
     bool autoThrottle;
     double targetHeading;
     double targetAltitude;
     double targetSpeed;
+    double targetVerticalSpeed;
 };
 
 // ATC communication
@@ -129,9 +131,9 @@ struct ATCMessage {
 
 // Waypoint
 struct Waypoint {
-    std::string id;
     Position position;
-    double altitude;  // feet MSL
+    std::string id;
+    double altitude = 0.0;  // feet MSL
     std::string type;  // VOR, NDB, FIX, etc.
 };
 
@@ -153,14 +155,16 @@ struct TerrainPoint {
 
 // Weather information
 struct WeatherConditions {
-    double windSpeed;      // knots
-    double windDirection;  // degrees
-    double visibility;     // statute miles
-    double cloudBase;      // feet AGL
-    double temperature;    // Celsius
-    bool icing;
-    bool turbulence;
-    bool precipitation;
+    double windSpeed = 0.0;      // knots
+    double windDirection = 0.0;  // degrees
+    double visibility = 10.0;    // statute miles
+    double cloudBase = 5000.0;   // feet AGL
+    double ceiling = 5000.0;     // feet AGL
+    double temperature = 15.0;   // Celsius
+    double dewpoint = 10.0;      // Celsius
+    bool icing = false;
+    bool turbulence = false;
+    bool precipitation = false;
 };
 
 } // namespace AICopilot

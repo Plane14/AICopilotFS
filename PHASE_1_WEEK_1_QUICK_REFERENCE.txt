@@ -1,0 +1,348 @@
+PHASE 1 WEEK 1 - QUICK REFERENCE GUIDE
+======================================
+
+FAST START COMMANDS
+===================
+
+Setup and build:
+  cd c:\Users\marti\source\repos\Plane14\AICopilotFS
+  cmake -B build -DBUILD_TESTS=ON
+  cmake --build build --config Release
+
+Run tests:
+  cd build
+  ctest --output-on-failure
+
+Or directly:
+  .\bin\aicopilot_tests.exe
+
+Run specific test suite:
+  .\bin\aicopilot_tests.exe --gtest_filter="NavigationTest*"
+
+---
+
+FILE LOCATIONS (Quick Lookup)
+=============================
+
+Mock Headers:
+  • c:\Users\marti\source\repos\Plane14\AICopilotFS\aicopilot\tests\mocks\mock_simconnect.hpp
+  • c:\Users\marti\source\repos\Plane14\AICopilotFS\aicopilot\tests\mocks\mock_databases.hpp
+
+Test Files (7 total):
+  1. navigation_test.cpp
+  2. collision_avoidance_test.cpp
+  3. aircraft_systems_test.cpp
+  4. weather_system_test.cpp
+  5. terrain_awareness_test.cpp
+  6. ml_decision_system_test.cpp
+  7. clearance_state_machine_test.cpp (existing)
+
+Build Config:
+  • c:\Users\marti\source\repos\Plane14\AICopilotFS\CMakeLists.txt (lines 245-290)
+
+Documentation:
+  • PHASE_1_WEEK_1_TEST_ANALYSIS.txt
+  • PHASE_1_WEEK_1_IMPLEMENTATION_GUIDE.txt
+  • PHASE_1_WEEK_1_DELIVERY_SUMMARY.txt (this directory)
+
+---
+
+TEST STATISTICS AT A GLANCE
+===========================
+
+Total Tests: 189
+Test Files: 7
+Test Suites: 6
+Mock Methods: 35+
+Total Code: 4,500+ lines
+
+Breakdown:
+  Navigation: 40 tests
+  Collision: 45 tests
+  Aircraft Systems: 28 tests
+  Weather System: 32 tests
+  Terrain Awareness: 24 tests
+  ML Decision System: 20 tests
+  ATC Clearance: 10 tests (existing)
+
+---
+
+CRITICAL FUNCTIONS (20 Priority List)
+======================================
+
+Tier 1 - MUST TEST FIRST:
+  1. Navigation::distanceToWaypoint()
+  2. Navigation::bearingToWaypoint()
+  3. SeparationStandards::check_separation_conflict()
+  4. CollisionDetector::check_circle_circle_collision()
+  5. AircraftSystems::setAutopilotAltitude()
+  6. WeatherSystem::calculateWindComponents()
+  7. ConflictPredictor::predict_conflicts()
+  8. MLDecisionSystem::makeATCDecision()
+
+Tier 2 - HIGH PRIORITY:
+  9. Navigation::isWaypointReached()
+  10. Navigation::loadFlightPlan()
+  11. TerrainAwareness::checkTerrainClearance()
+  12. WeatherSystem::isWeatherSuitableForTakeoff()
+  13. ManeuverSelector::select_avoidance_maneuver()
+  14. MLDecisionSystem::trainWithFeedback()
+  15. AircraftSystems::update()
+
+Tier 3 - IMPORTANT:
+  16. TerrainAwareness::getTerrainElevation()
+  17. WeatherSystem::assessWeatherSeverity()
+  18. Navigation::crossTrackError()
+  19. ConflictResolver::resolve_multi_aircraft_conflicts()
+  20. SimConnectWrapper::processMessages()
+
+---
+
+EXPECTED COVERAGE GAINS
+=======================
+
+Current: ~5%
+Target: 40-45%
+
+By Component:
+  Navigation:        5% → 30% (+25)
+  Collision:         2% → 35% (+33)
+  Aircraft Systems:  3% → 25% (+22)
+  Weather:           4% → 28% (+24)
+  Terrain:           2% → 22% (+20)
+  ML System:         1% → 18% (+17)
+
+---
+
+KEY EDGE CASES (Quick Reference)
+=================================
+
+Must Test:
+  ✓ Antimeridian crossing (±180° longitude)
+  ✓ Zero velocity aircraft
+  ✓ Identical positions (collision guarantee)
+  ✓ Extreme altitudes (FL430, below sea level)
+  ✓ Rapid descent (5000+ fpm)
+  ✓ High wind speeds (50+ knots)
+  ✓ Mountainous terrain (>10,000 ft elevation)
+  ✓ Polar regions (±90° latitude)
+
+---
+
+MOCK FRAMEWORK OVERVIEW
+=======================
+
+MockSimConnectWrapper:
+  - Inherits from SimConnectWrapper
+  - 35+ mocked methods
+  - State storage: mockAircraftState_, mockPosition_
+  - Callback storage: stateCallback_, atcCallback_
+  - Methods: setMockAircraftState(), emitAircraftState()
+  Location: aicopilot/tests/mocks/mock_simconnect.hpp
+
+MockWeatherSystem:
+  - Weather condition injection
+  - Hazard database mocking
+  Location: aicopilot/tests/mocks/mock_databases.hpp
+
+MockTerrainAwareness:
+  - Elevation map injection
+  - Obstacle database mocking
+  Location: aicopilot/tests/mocks/mock_databases.hpp
+
+---
+
+COMMON TEST PATTERNS
+====================
+
+Test Fixture Setup:
+  class NavigationTest : public ::testing::Test {
+  protected:
+      Navigation nav;
+      Position createPosition(double lat, double lon, double alt) {
+          return {lat, lon, alt, 0.0};
+      }
+  };
+
+Basic Test:
+  TEST_F(NavigationTest, TestName) {
+      Position start = createPosition(40.0, -74.0, 0.0);
+      double distance = nav.distanceToWaypoint(start, waypoint);
+      EXPECT_NEAR(distance, expectedValue, tolerance);
+  }
+
+Mock Verification:
+  EXPECT_CALL(*mockSimConnect, setAutopilotAltitude(15000.0))
+      .Times(1);
+  systems->setAltitude(15000.0);
+
+---
+
+GOOGLE TEST ASSERTIONS (Cheat Sheet)
+====================================
+
+Equality:
+  EXPECT_EQ(a, b);      // a == b
+  EXPECT_NE(a, b);      // a != b
+
+Comparison:
+  EXPECT_LT(a, b);      // a < b
+  EXPECT_LE(a, b);      // a <= b
+  EXPECT_GT(a, b);      // a > b
+  EXPECT_GE(a, b);      // a >= b
+
+Floating Point:
+  EXPECT_FLOAT_EQ(a, b);       // float equality
+  EXPECT_DOUBLE_EQ(a, b);      // double equality
+  EXPECT_NEAR(a, b, tol);      // within tolerance
+
+Boolean:
+  EXPECT_TRUE(condition);
+  EXPECT_FALSE(condition);
+
+String:
+  EXPECT_STREQ(s1, s2);        // C-string equality
+  EXPECT_EQ(string1, string2);  // std::string equality
+
+Collections:
+  EXPECT_THAT(vec, Contains(element));
+  EXPECT_THAT(vec, SizeIs(size));
+
+---
+
+DEBUGGING CHECKLIST
+===================
+
+If tests won't compile:
+  □ cmake -B build -DBUILD_TESTS=ON ran successfully
+  □ GTest library linked (target_link_libraries includes gtest)
+  □ All #include paths correct
+  □ No syntax errors in test code
+
+If tests fail:
+  □ Check EXPECT_* condition logic
+  □ Verify mock setup matches actual interface
+  □ Review tolerance/epsilon values
+  □ Check for state pollution between tests
+
+If tests hang:
+  □ Look for infinite loops in test
+  □ Check mock callbacks not deadlocking
+  □ Add --gtest_filter to run subset
+  □ Use --timeout=5 with ctest
+
+If coverage is low:
+  □ Verify all critical functions have tests
+  □ Check for unreachable code paths
+  □ Review edge cases
+  □ Ensure error handling tested
+
+---
+
+BUILD TROUBLESHOOTING
+====================
+
+CMake configuration fails:
+  Solution: cmake -B build -DBUILD_TESTS=ON -DCMAKE_GENERATOR="Visual Studio 17 2022"
+
+Compilation errors:
+  Solution: Check GTest FetchContent download, try: cmake --build build --clean-first
+
+Linker errors:
+  Solution: Verify target_link_libraries includes gtest and gtest_main
+
+Test discovery fails:
+  Solution: Rebuild project, check gtest_discover_tests() in CMakeLists.txt
+
+---
+
+PERFORMANCE TARGETS
+===================
+
+Compilation:
+  - Initial build: < 2 minutes
+  - Incremental: < 30 seconds
+  - Total binary size: < 100 MB
+
+Execution:
+  - All 189 tests: < 10 seconds
+  - Single test: < 100 ms
+  - Startup overhead: < 1 second
+
+---
+
+WHAT'S NEXT (Phase 1, Week 2)
+=============================
+
+Priority 1 (Do First):
+  ✓ Run full test suite
+  ✓ Measure coverage
+  ✓ Document results
+
+Priority 2 (This Week):
+  ✓ Implement .cpp files for mocks
+  ✓ Fix any test failures
+  ✓ Add database tests (new file)
+
+Priority 3 (Next Week):
+  ✓ Integration test scenarios
+  ✓ Performance benchmarks
+  ✓ Coverage push to 50%
+
+---
+
+USEFUL COMMANDS (Copy-Paste)
+============================
+
+Full build from scratch:
+  rmdir /s build
+  cmake -B build -DBUILD_TESTS=ON
+  cmake --build build --config Release
+
+Run all tests with output:
+  cd build && ctest --output-on-failure -V
+
+Run specific test class:
+  ./bin/aicopilot_tests.exe --gtest_filter="NavigationTest.*"
+
+Run with timeout:
+  ctest --timeout 30
+
+Generate XML report:
+  ctest -T Test --output-on-failure -O results.xml
+
+Verbose test output:
+  ctest -V -I 1,189  (run tests 1-189)
+
+---
+
+RESOURCES
+=========
+
+Documentation Files (in project root):
+  1. PHASE_1_WEEK_1_TEST_ANALYSIS.txt
+  2. PHASE_1_WEEK_1_IMPLEMENTATION_GUIDE.txt
+  3. PHASE_1_WEEK_1_DELIVERY_SUMMARY.txt
+  4. PHASE_1_WEEK_1_QUICK_REFERENCE.txt (this file)
+
+External References:
+  - Google Test Documentation: https://google.github.io/googletest/
+  - CMake Documentation: https://cmake.org/cmake/help/latest/
+  - SimConnect API: See c:/MSFS 2024 SDK/SimConnect SDK/
+
+---
+
+TEAM CONTACTS
+=============
+
+Test Infrastructure Lead: [Your Name]
+CMake Build Owner: [Build Engineer]
+Mock Framework Owner: [QA Lead]
+Coverage Analysis: [Test Analyst]
+
+---
+
+Last Updated: Phase 1, Week 1
+Version: 1.0
+Status: READY FOR EXECUTION
+

@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
+
+# Explicitly set MSVC for Windows
+if(WIN32 AND NOT CMAKE_CXX_COMPILER)
+    set(CMAKE_C_COMPILER cl CACHE STRING "C compiler" FORCE)
+    set(CMAKE_CXX_COMPILER cl CACHE STRING "CXX compiler" FORCE)
+endif()
+
 project(AICopilotFS VERSION 1.0.0 LANGUAGES CXX)
 
 # Set C++ standard
@@ -323,11 +330,15 @@ if(BUILD_TESTS)
             ${CMAKE_SOURCE_DIR}/aicopilot/tests
         )
         
-        gtest_discover_tests(aicopilot_tests)
+        if(COMMAND gtest_discover_tests)
+            gtest_discover_tests(aicopilot_tests)
+        endif()
     endif()
     
     # Register Phase 1 tests
-    gtest_discover_tests(aicopilot_phase1_tests)
+    if(COMMAND gtest_discover_tests)
+        gtest_discover_tests(aicopilot_phase1_tests)
+    endif()
     
     message(STATUS "Test infrastructure configured:")
     message(STATUS "  - Google Test v1.14.0 with GMock")

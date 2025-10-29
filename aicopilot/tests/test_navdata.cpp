@@ -344,7 +344,7 @@ TEST_F(NavdataTest, DatabaseReady) {
 }
 
 TEST_F(NavdataTest, GetStatistics) {
-    std::string stats = db_.GetStatistics();
+    std::string stats = db_.GetStatisticsString();
     
     EXPECT_TRUE(stats.find("Waypoints") != std::string::npos);
     EXPECT_TRUE(stats.find("Airways") != std::string::npos);
@@ -426,7 +426,7 @@ void test_navdata_all() {
     std::cout << "✓ Flight plan validation working" << std::endl;
     
     // Test statistics
-    std::cout << g_db->GetStatistics() << std::endl;
+    std::cout << g_db->GetStatisticsString() << std::endl;
     
     std::cout << "All tests passed!" << std::endl;
     CleanupDatabase();

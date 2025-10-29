@@ -39,6 +39,8 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <chrono>
+#include <string>
 
 namespace AICopilot {
 
@@ -430,6 +432,7 @@ private:
     void InvalidateCache();
     std::optional<std::vector<std::string>> GetFromCache(const std::string& key) const;
     void StoreInCache(const std::string& key, const std::vector<std::string>& value) const;
+};
 
 } // namespace AICopilot
 

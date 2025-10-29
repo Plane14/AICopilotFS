@@ -17,7 +17,9 @@
 
 #include "voice_interpreter.hpp"
 #include <algorithm>
+#include <cctype>
 #include <sstream>
+#include "navdata_provider.h"
 
 namespace AICopilot {
 
@@ -204,7 +206,6 @@ bool ParameterValidator::validateAirway(const std::string& airway_name) const {
     while (i < airway_name.length() && std::isdigit(airway_name[i])) {
         i++;
     }
-    
     return i == airway_name.length();
 }
 
@@ -237,6 +238,10 @@ void ParameterValidator::setAircraftType(const std::string& aircraft_type) {
 
 AmbiguityResolver::AmbiguityResolver()
     : current_airport_(""), current_airway_("") {
+}
+
+void AmbiguityResolver::setNavdataProvider(std::shared_ptr<INavdataProvider> provider) {
+    navdata_provider_ = provider;
 }
 
 bool AmbiguityResolver::hasAmbiguity(const SystemAction& action) const {
@@ -292,24 +297,77 @@ SystemAction AmbiguityResolver::selectAction(
 
 std::vector<std::string> AmbiguityResolver::resolveRunwayAmbiguity(
     const std::string& airport_code) {
-    
-    // In a real implementation, this would look up available runways
-    // For now, return some example runway configurations
-    if (airport_code == "KJFK") {
-        return {"04L", "04R", "13L", "13R", "22L", "22R", "31L", "31R"};
+    std::vector<std::string> runways;
+    if (airport_code.empty()) {
+        return runways;
     }
-    
-    return {};
+
+    std::string normalized = airport_code;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+
+    if (auto provider = navdata_provider_.lock()) {
+        AirportInfo airportInfo;
+        if (provider->getAirportByICAO(normalized, airportInfo)) {
+            runways = airportInfo.runways;
+            if (runways.empty()) {
+                AirportLayout layout;
+                if (provider->getAirportLayout(normalized, layout)) {
+                    for (const auto& runway : layout.runways) {
+                        runways.push_back(runway.runway_ident);
+                    }
+                }
+            }
+        }
+    }
+
+    if (runways.empty() && normalized == "KJFK") {
+        runways = {"04L", "04R", "13L", "13R", "22L", "22R", "31L", "31R"};
+    }
+
+    std::sort(runways.begin(), runways.end());
+    runways.erase(std::unique(runways.begin(), runways.end()), runways.end());
+    return runways;
 }
 
 std::vector<std::string> AmbiguityResolver::resolveWaypointAmbiguity(
     const std::string& waypoint_name) {
     
-    // In a real implementation, this would look up similar waypoint names
-    // For now, return empty
-    return {};
-}
+    std::vector<std::string> candidates;
+    if (waypoint_name.empty()) {
+        return candidates;
+    }
 
+    const std::string normalized = [&waypoint_name]() {
+        std::string upper = waypoint_name;
+        std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) {
+            return static_cast<char>(std::toupper(c));
+        });
+        return upper;
+    }();
+
+    if (auto provider = navdata_provider_.lock()) {
+        AirportInfo airportInfo;
+        if (provider->getAirportByICAO(normalized, airportInfo)) {
+            candidates.push_back(normalized);
+        } else if (normalized.size() == 3) {
+            std::string prefixed = "K" + normalized;
+            if (provider->getAirportByICAO(prefixed, airportInfo)) {
+                candidates.push_back(prefixed);
+            }
+        }
+
+        NavaidInfo navaidInfo;
+        if (provider->getNavaidByID(normalized, navaidInfo)) {
+            candidates.push_back(normalized);
+        }
+
+        std::sort(candidates.begin(), candidates.end());
+        candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+    }
+
+    return candidates;
 // ============================================================================
 // VoiceInterpreter Implementation
 // ============================================================================
@@ -437,6 +495,12 @@ std::string VoiceInterpreter::getActionDescription(const SystemAction& action) c
 
 void VoiceInterpreter::setFlightContext(const std::string& context_info) {
     flight_context_ = context_info;
+}
+
+void VoiceInterpreter::setNavdataProvider(std::shared_ptr<INavdataProvider> provider) {
+    if (ambiguity_resolver_) {
+        ambiguity_resolver_->setNavdataProvider(std::move(provider));
+    }
 }
 
 } // namespace AICopilot

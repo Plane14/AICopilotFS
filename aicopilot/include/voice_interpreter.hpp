@@ -26,6 +26,8 @@
 
 namespace AICopilot {
 
+class INavdataProvider;
+
 /**
  * Voice Command Interpreter
  * 
@@ -213,11 +215,17 @@ public:
      */
     std::vector<std::string> resolveWaypointAmbiguity(
         const std::string& waypoint_name);
+
+    /**
+     * Provide navdata access for resolving ambiguities
+     */
+    void setNavdataProvider(std::shared_ptr<INavdataProvider> provider);
     
 private:
     // Context for ambiguity resolution
     std::string current_airport_;
     std::string current_airway_;
+    std::weak_ptr<INavdataProvider> navdata_provider_;
 };
 
 /**
@@ -282,6 +290,11 @@ public:
      * Set current flight context (helps with interpretation)
      */
     void setFlightContext(const std::string& context_info);
+
+    /**
+     * Provide navdata access to the interpreter for better ambiguity handling
+     */
+    void setNavdataProvider(std::shared_ptr<INavdataProvider> provider);
     
     /**
      * Get last interpreted action

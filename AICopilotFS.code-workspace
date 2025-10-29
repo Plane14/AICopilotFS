@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../../../MSFS 2024 SDK"
+		},
+		{
+			"path": "D:/Lockheed Martin/Prepar3D v6 SDK"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"mutex": "cpp",
+			"vector": "cpp"
+		}
+	}
+}

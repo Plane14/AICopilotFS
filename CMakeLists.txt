@@ -136,6 +136,7 @@ endif()
 if(BUILD_WITHOUT_SIMCONNECT)
     message(STATUS "Building without SimConnect SDK (stub mode)")
     set(SIMCONNECT_FOUND TRUE)
+    add_definitions(-DAICOPILOT_STUB_SIMCONNECT)
 elseif(NOT SIMCONNECT_FOUND)
     message(FATAL_ERROR "No SimConnect SDK found! Please:\n"
                         "  1. Install MSFS 2024 SDK to: ${MSFS_2024_SDK_BASE}\n"
@@ -146,6 +147,11 @@ endif()
 
 # Add SimConnect include directories
 include_directories(${SIMCONNECT_INCLUDE_DIRS})
+
+# Define compile-time flags for SimConnect availability
+if(SIMCONNECT_FOUND AND NOT DEFINED AICOPILOT_STUB_SIMCONNECT)
+    add_definitions(-DAICOPILOT_HAVE_SIMCONNECT)
+endif()
 
 # Optional: Find packages for Ollama integration
 option(ENABLE_OLLAMA "Enable Ollama AI integration (requires CURL and jsoncpp)" OFF)
@@ -301,6 +307,7 @@ if(BUILD_TESTS)
         aicopilot/tests/unit/terrain_awareness_test.cpp
         aicopilot/tests/unit/clearance_state_machine_test.cpp
         aicopilot/tests/test_voice_interface.cpp
+        aicopilot/tests/unit/test_simconnect_stub.cpp
     )
     
     # Create Phase 1 test executable (Priority: Core functionality)

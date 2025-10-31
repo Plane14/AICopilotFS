@@ -162,36 +162,79 @@ The current implementation includes SimConnect as a stub. To complete integratio
 
 ```bash
 cd build
-ctest --output-on-failure
-```
-
 ## Cleaning Build
 
-```bash
-# Remove all build artifacts
-rm -rf build/
+### Required SDKs
+You need at least one of the following to enable SimConnect integration:
 
-# Or use make
-cd build
+Microsoft Flight Simulator 2024 SDK
+- Download: https://docs.flightsimulator.com/msfs2024/html/1_Introduction/Introduction.htm
+- Default path used by CMake: `C:/MSFS 2024 SDK`
+
+Prepar3D v6 SDK
+- Download: https://www.prepar3d.com/SDKv6/sdk/sdk_overview.html
+- Default path used by CMake: `D:/Lockheed Martin/Prepar3D v6 SDK`
+
+You can override the SDK locations when configuring CMake using these cache variables:
+- `-DMSFS_2024_SDK_BASE="C:/Path/To/MSFS 2024 SDK"`
+- `-DP3D_V6_SDK_BASE="D:/Path/To/Prepar3D v6 SDK"`
+
+Alternatively, you can build without SimConnect (stub mode) using:
+- `-DBUILD_WITHOUT_SIMCONNECT=ON`
+
+### Windows (Visual Studio 2022)
+
+REM Configure for Visual Studio 2022 (choose ONE of the following)
+
+REM 1) Stub mode (no SDK required)
+cmake .. -G "Visual Studio 17 2022" -A x64 -DBUILD_WITHOUT_SIMCONNECT=ON
+
+REM 2) MSFS 2024 SDK
+cmake .. -G "Visual Studio 17 2022" -A x64 -DUSE_MSFS_2024_SDK=ON -DMSFS_2024_SDK_BASE="C:/MSFS 2024 SDK"
+
+REM 3) Prepar3D v6 SDK
+cmake .. -G "Visual Studio 17 2022" -A x64 -DUSE_P3D_V6_SDK=ON -DP3D_V6_SDK_BASE="D:/Lockheed Martin/Prepar3D v6 SDK"
+
+REM 4) Support both SDKs (one must be installed)
+cmake .. -G "Visual Studio 17 2022" -A x64 -DSUPPORT_BOTH_SDKS=ON -DMSFS_2024_SDK_BASE="C:/MSFS 2024 SDK" -DP3D_V6_SDK_BASE="D:/Lockheed Martin/Prepar3D v6 SDK"
 make clean
-```
+### Build Options
 
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Debug
+
+# SimConnect selection
+cmake .. -DUSE_MSFS_2024_SDK=ON -DMSFS_2024_SDK_BASE="C:/MSFS 2024 SDK"
+cmake .. -DUSE_P3D_V6_SDK=ON -DP3D_V6_SDK_BASE="D:/Lockheed Martin/Prepar3D v6 SDK"
+cmake .. -DSUPPORT_BOTH_SDKS=ON
+cmake .. -DBUILD_WITHOUT_SIMCONNECT=ON
 ## IDE Integration
+### Missing SimConnect headers or libraries
 
-### Visual Studio Code
-
-Install CMake Tools extension and open the folder. CMake will configure automatically.
-
-### CLion
-
-Open the project folder directly. CLion will detect CMakeLists.txt.
-
-### Visual Studio
-
-Generate Visual Studio solution:
+Pass the correct SDK base path to CMake using:
 ```cmd
-cmake .. -G "Visual Studio 16 2019"
+cmake .. -DUSE_MSFS_2024_SDK=ON -DMSFS_2024_SDK_BASE="C:/MSFS 2024 SDK"
+cmake .. -DUSE_P3D_V6_SDK=ON -DP3D_V6_SDK_BASE="D:/Lockheed Martin/Prepar3D v6 SDK"
 ```
+
+The SDK should contain:
+- MSFS: `SimConnect SDK/include/SimConnect.h` and `SimConnect SDK/lib/SimConnect.lib`
+- P3D: `inc/SimConnect/SimConnect.h` and `lib/SimConnect/SimConnect.lib`
+
+If you cannot install an SDK, use stub mode: `-DBUILD_WITHOUT_SIMCONNECT=ON`.
+
+### LINK : fatal error LNK1104: cannot open 'libucrt.lib'
+
+Install or repair the Windows 10/11 SDK in Visual Studio Installer and ensure the selected SDK version is available. Then re-run the Developer Command Prompt and reconfigure CMake.
+### Visual Studio
+### Notes about SimConnect
+
+The library now supports three modes:
+- Full MSFS 2024 SDK
+- Full Prepar3D v6 SDK
+- Stub mode (no SDK; SimConnect calls are no-ops so you can build and test non-SDK features)
+
+Selection is controlled by the CMake options shown above. No absolute include paths are required; CMake configures include and link directories.
 Then open `AICopilotFS.sln`
 
 ## Next Steps

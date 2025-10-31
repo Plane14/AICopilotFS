@@ -64,18 +64,58 @@
 #include <windows.h>
 #include <cmath>
 
-// Include SimConnect SDK headers based on simulator type
-// Conditional compilation based on which SDK is available
-#if defined(USE_MSFS_2024)
-    #include "c:/MSFS 2024 SDK/SimConnect SDK/include/SimConnect.h"
-#elif defined(USE_P3D_V6)
-    #include "d:/Lockheed Martin/Prepar3D v6 SDK/inc/SimConnect/SimConnect.h"
-#else
-    // Default to MSFS 2024 if not specified
-    #include "c:/MSFS 2024 SDK/SimConnect SDK/include/SimConnect.h"
+// Rely on CMake include directories to resolve SimConnect.h for the selected SDK
+// This avoids hard-coded absolute paths and mismatched macros.
+#ifdef AICOPILOT_HAVE_SIMCONNECT
+#include <SimConnect.h>
 #endif
 
 namespace AICopilot {
+
+#ifndef AICOPILOT_HAVE_SIMCONNECT
+
+// =========================
+// Stub implementation (no SimConnect)
+// =========================
+
+SimConnectWrapper::SimConnectWrapper() : pImpl(nullptr) {}
+SimConnectWrapper::~SimConnectWrapper() {}
+bool SimConnectWrapper::connect(SimulatorType, const std::string&) { return false; }
+void SimConnectWrapper::disconnect() {}
+bool SimConnectWrapper::isConnected() const { return false; }
+void SimConnectWrapper::processMessages() {}
+AircraftState SimConnectWrapper::getAircraftState() { return {}; }
+AutopilotState SimConnectWrapper::getAutopilotState() { return {}; }
+Position SimConnectWrapper::getPosition() { return {}; }
+void SimConnectWrapper::setAutopilotMaster(bool) {}
+void SimConnectWrapper::setAutopilotHeading(double) {}
+void SimConnectWrapper::setAutopilotAltitude(double) {}
+void SimConnectWrapper::setAutopilotSpeed(double) {}
+void SimConnectWrapper::setAutopilotVerticalSpeed(double) {}
+void SimConnectWrapper::setAutopilotNav(bool) {}
+void SimConnectWrapper::setAutopilotApproach(bool) {}
+void SimConnectWrapper::setThrottle(double) {}
+void SimConnectWrapper::setElevator(double) {}
+void SimConnectWrapper::setAileron(double) {}
+void SimConnectWrapper::setRudder(double) {}
+void SimConnectWrapper::setFlaps(int) {}
+void SimConnectWrapper::setGear(bool) {}
+void SimConnectWrapper::setSpoilers(bool) {}
+void SimConnectWrapper::setParkingBrake(bool) {}
+void SimConnectWrapper::setBrakes(double) {}
+void SimConnectWrapper::setMixture(double) {}
+void SimConnectWrapper::setPropellerPitch(double) {}
+void SimConnectWrapper::setMagnetos(int) {}
+void SimConnectWrapper::toggleEngineStarter(int) {}
+void SimConnectWrapper::setEngineState(int, bool) {}
+void SimConnectWrapper::setLight(const std::string&, bool) {}
+void SimConnectWrapper::sendATCMenuSelection(int) {}
+void SimConnectWrapper::requestATCMenu() {}
+std::vector<std::string> SimConnectWrapper::getATCMenuOptions() { return {}; }
+void SimConnectWrapper::subscribeToAircraftState(StateCallback) {}
+void SimConnectWrapper::subscribeToATCMessages(ATCCallback) {}
+
+#else // AICOPILOT_HAVE_SIMCONNECT
 
 // SimConnect Data Definitions
 enum DATA_DEFINITIONS {
@@ -317,12 +357,13 @@ AircraftState SimConnectWrapper::getAircraftState() {
     if (!pImpl->connected) return pImpl->currentState;
     
     // Request aircraft state data
-    HRESULT hr = SimConnect_RequestDataOnSimObjectType(
+    HRESULT hr = SimConnect_RequestDataOnSimObject(
         pImpl->hSimConnect,
         REQUEST_AIRCRAFT_STATE,
         DEFINITION_AIRCRAFT_STATE,
-        0,
-        SIMCONNECT_SIMOBJECT_TYPE_USER
+        SIMCONNECT_OBJECT_ID_USER,
+        SIMCONNECT_PERIOD_ONCE,
+        SIMCONNECT_DATA_REQUEST_FLAG_DEFAULT
     );
     
     if (FAILED(hr)) {
@@ -336,12 +377,13 @@ AutopilotState SimConnectWrapper::getAutopilotState() {
     if (!pImpl->connected) return pImpl->autopilotState;
     
     // Request autopilot state data
-    HRESULT hr = SimConnect_RequestDataOnSimObjectType(
+    HRESULT hr = SimConnect_RequestDataOnSimObject(
         pImpl->hSimConnect,
         REQUEST_AUTOPILOT_STATE,
         DEFINITION_AUTOPILOT_STATE,
-        0,
-        SIMCONNECT_SIMOBJECT_TYPE_USER
+        SIMCONNECT_OBJECT_ID_USER,
+        SIMCONNECT_PERIOD_ONCE,
+        SIMCONNECT_DATA_REQUEST_FLAG_DEFAULT
     );
     
     if (FAILED(hr)) {
@@ -543,8 +585,8 @@ void SimConnectWrapper::setThrottle(double value) {
     value = std::max(0.0, std::min(1.0, value));
     std::cout << "Setting throttle: " << (value * 100.0) << "%" << std::endl;
     
-    // Convert to 0-16384 range (SimConnect throttle range)
-    DWORD throttleValue = static_cast<DWORD>(value * 16384.0);
+    // Convert to 0-16383 range (SimConnect throttle range)
+    DWORD throttleValue = static_cast<DWORD>(std::round(value * 16383.0));
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -565,9 +607,9 @@ void SimConnectWrapper::setElevator(double value) {
     
     // Clamp value to -1.0 to 1.0
     value = std::max(-1.0, std::min(1.0, value));
-    
-    // Convert to -16384 to 16384 range
-    DWORD elevatorValue = static_cast<DWORD>((value + 1.0) * 8192.0);
+    // Convert to signed range -16383..16383 as required by AXIS events
+    LONG elevatorSigned = static_cast<LONG>(std::round(value * 16383.0));
+    DWORD elevatorValue = static_cast<DWORD>(elevatorSigned);
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -588,9 +630,9 @@ void SimConnectWrapper::setAileron(double value) {
     
     // Clamp value to -1.0 to 1.0
     value = std::max(-1.0, std::min(1.0, value));
-    
-    // Convert to -16384 to 16384 range
-    DWORD aileronValue = static_cast<DWORD>((value + 1.0) * 8192.0);
+    // Convert to signed range -16383..16383
+    LONG aileronSigned = static_cast<LONG>(std::round(value * 16383.0));
+    DWORD aileronValue = static_cast<DWORD>(aileronSigned);
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -611,9 +653,9 @@ void SimConnectWrapper::setRudder(double value) {
     
     // Clamp value to -1.0 to 1.0
     value = std::max(-1.0, std::min(1.0, value));
-    
-    // Convert to -16384 to 16384 range
-    DWORD rudderValue = static_cast<DWORD>((value + 1.0) * 8192.0);
+    // Convert to signed range -16383..16383
+    LONG rudderSigned = static_cast<LONG>(std::round(value * 16383.0));
+    DWORD rudderValue = static_cast<DWORD>(rudderSigned);
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -635,16 +677,14 @@ void SimConnectWrapper::setFlaps(int position) {
     // Clamp position to 0-100%
     position = std::max(0, std::min(100, position));
     std::cout << "Setting flaps: " << position << "%" << std::endl;
-    
-    // Convert to flaps index (most aircraft have 0-4 or 0-5 positions)
-    // This is a simplification; actual implementation should query aircraft config
-    DWORD flapsIndex = static_cast<DWORD>((position * 5) / 100);
+    // Convert to axis range 0..16383 for FLAPS_SET event
+    DWORD flapsAxis = static_cast<DWORD>(std::round((position / 100.0) * 16383.0));
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
         SIMCONNECT_OBJECT_ID_USER,
         EVENT_FLAPS_SET,
-        flapsIndex,
+        flapsAxis,
         SIMCONNECT_GROUP_PRIORITY_HIGHEST,
         SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
     );
@@ -700,18 +740,19 @@ void SimConnectWrapper::setParkingBrake(bool set) {
     if (!pImpl->connected) return;
     
     std::cout << "Setting parking brake: " << (set ? "ON" : "OFF") << std::endl;
-    
-    HRESULT hr = SimConnect_TransmitClientEvent(
-        pImpl->hSimConnect,
-        SIMCONNECT_OBJECT_ID_USER,
-        EVENT_PARKING_BRAKES,
-        set ? 1 : 0,
-        SIMCONNECT_GROUP_PRIORITY_HIGHEST,
-        SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
-    );
-    
-    if (FAILED(hr)) {
-        std::cerr << "Failed to set parking brake: 0x" << std::hex << hr << std::endl;
+    // PARKING_BRAKES is a toggle; only toggle if state differs
+    if (pImpl->currentState.parkingBrakeSet != set) {
+        HRESULT hr = SimConnect_TransmitClientEvent(
+            pImpl->hSimConnect,
+            SIMCONNECT_OBJECT_ID_USER,
+            EVENT_PARKING_BRAKES,
+            0,
+            SIMCONNECT_GROUP_PRIORITY_HIGHEST,
+            SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
+        );
+        if (FAILED(hr)) {
+            std::cerr << "Failed to toggle parking brake: 0x" << std::hex << hr << std::endl;
+        }
     }
 }
 
@@ -722,20 +763,26 @@ void SimConnectWrapper::setBrakes(double value) {
     value = std::max(0.0, std::min(1.0, value));
     std::cout << "Setting brakes: " << (value * 100.0) << "%" << std::endl;
     
-    // Convert to 0-16384 range
-    DWORD brakeValue = static_cast<DWORD>(value * 16384.0);
-    
-    HRESULT hr = SimConnect_TransmitClientEvent(
+    // Convert to 0-16383 range and apply to both left and right axis brakes
+    DWORD brakeValue = static_cast<DWORD>(std::round(value * 16383.0));
+    HRESULT hr1 = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
         SIMCONNECT_OBJECT_ID_USER,
-        EVENT_BRAKES,
+        EVENT_BRAKES_LEFT,
         brakeValue,
         SIMCONNECT_GROUP_PRIORITY_HIGHEST,
         SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
     );
-    
-    if (FAILED(hr)) {
-        std::cerr << "Failed to set brakes: 0x" << std::hex << hr << std::endl;
+    HRESULT hr2 = SimConnect_TransmitClientEvent(
+        pImpl->hSimConnect,
+        SIMCONNECT_OBJECT_ID_USER,
+        EVENT_BRAKES_RIGHT,
+        brakeValue,
+        SIMCONNECT_GROUP_PRIORITY_HIGHEST,
+        SIMCONNECT_EVENT_FLAG_GROUPID_IS_PRIORITY
+    );
+    if (FAILED(hr1) || FAILED(hr2)) {
+        std::cerr << "Failed to set brakes: 0x" << std::hex << (FAILED(hr1) ? hr1 : hr2) << std::endl;
     }
 }
 
@@ -746,8 +793,8 @@ void SimConnectWrapper::setMixture(double value) {
     value = std::max(0.0, std::min(1.0, value));
     std::cout << "Setting mixture: " << (value * 100.0) << "%" << std::endl;
     
-    // Convert to 0-16384 range
-    DWORD mixtureValue = static_cast<DWORD>(value * 16384.0);
+    // Convert to 0-16383 range
+    DWORD mixtureValue = static_cast<DWORD>(std::round(value * 16383.0));
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -770,8 +817,8 @@ void SimConnectWrapper::setPropellerPitch(double value) {
     value = std::max(0.0, std::min(1.0, value));
     std::cout << "Setting propeller pitch: " << (value * 100.0) << "%" << std::endl;
     
-    // Convert to 0-16384 range
-    DWORD propValue = static_cast<DWORD>(value * 16384.0);
+    // Convert to 0-16383 range
+    DWORD propValue = static_cast<DWORD>(std::round(value * 16383.0));
     
     HRESULT hr = SimConnect_TransmitClientEvent(
         pImpl->hSimConnect,
@@ -983,55 +1030,55 @@ bool SimConnectWrapper::Impl::initializeDataDefinitions() {
     
     HRESULT hr;
     
-    // ===== AIRCRAFT STATE DATA DEFINITION =====
+    // ===== AIRCRAFT STATE DATA DEFINITION (canonical SimVar names) =====
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Latitude", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE LATITUDE", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Longitude", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE LONGITUDE", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Altitude", "feet", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE ALTITUDE", "feet", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Heading Degrees True", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE HEADING DEGREES TRUE", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Pitch Degrees", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE PITCH DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Plane Bank Degrees", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "PLANE BANK DEGREES", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Airspeed Indicated", "knots", SIMCONNECT_DATATYPE_FLOAT64);
+        "AIRSPEED INDICATED", "knots", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Airspeed True", "knots", SIMCONNECT_DATATYPE_FLOAT64);
+        "AIRSPEED TRUE", "knots", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Ground Velocity", "knots", SIMCONNECT_DATATYPE_FLOAT64);
+        "GROUND VELOCITY", "knots", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Vertical Speed", "feet per minute", SIMCONNECT_DATATYPE_FLOAT64);
+        "VERTICAL SPEED", "feet per minute", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Kohlsman Setting Hg", "inHg", SIMCONNECT_DATATYPE_FLOAT64);
+        "KOHLSMAN SETTING HG", "inHg", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Fuel Total Quantity", "gallons", SIMCONNECT_DATATYPE_FLOAT64);
+        "FUEL TOTAL QUANTITY", "gallons", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "General Eng RPM:1", "rpm", SIMCONNECT_DATATYPE_FLOAT64);
+        "GENERAL ENG RPM:1", "rpm", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Sim On Ground", "bool", SIMCONNECT_DATATYPE_INT32);
+        "SIM ON GROUND", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Brake Parking Position", "bool", SIMCONNECT_DATATYPE_INT32);
+        "BRAKE PARKING POSITION", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Gear Handle Position", "bool", SIMCONNECT_DATATYPE_INT32);
+        "GEAR HANDLE POSITION", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Flaps Handle Percent", "percent", SIMCONNECT_DATATYPE_FLOAT64);
+        "FLAPS HANDLE PERCENT", "percent", SIMCONNECT_DATATYPE_FLOAT64);
     
-    // Electrical system data
+    // Electrical system data (canonical names)
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Electrical Master Battery", "bool", SIMCONNECT_DATATYPE_INT32);
+        "ELECTRICAL MASTER BATTERY", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "General Eng Master Alternator:1", "bool", SIMCONNECT_DATATYPE_INT32);
+        "GENERAL ENG MASTER ALTERNATOR:1", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Electrical Main Bus Voltage", "volts", SIMCONNECT_DATATYPE_FLOAT64);
+        "ELECTRICAL MAIN BUS VOLTAGE", "volts", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "Electrical Main Bus Amps", "amperes", SIMCONNECT_DATATYPE_FLOAT64);
+        "ELECTRICAL MAIN BUS AMPS", "amperes", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "General Eng Generator Switch:1", "bool", SIMCONNECT_DATATYPE_INT32);
+        "GENERAL ENG GENERATOR SWITCH:1", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AIRCRAFT_STATE, 
-        "General Eng Generator Amps:1", "amperes", SIMCONNECT_DATATYPE_FLOAT64);
+        "GENERAL ENG GENERATOR AMPS:1", "amperes", SIMCONNECT_DATATYPE_FLOAT64);
     
     if (FAILED(hr)) {
         std::cerr << "Failed to add aircraft state data definition: 0x" << std::hex << hr << std::endl;
@@ -1039,30 +1086,31 @@ bool SimConnectWrapper::Impl::initializeDataDefinitions() {
     }
     
     // ===== AUTOPILOT STATE DATA DEFINITION =====
+    // Normalized to canonical uppercase SimVar names (best-effort)
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Master", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT MASTER", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Heading Lock", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT HEADING LOCK", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Altitude Lock", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT ALTITUDE LOCK", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Airspeed Hold", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT AIRSPEED HOLD", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Nav1 Lock", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT NAV1 LOCK", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Approach Hold", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT APPROACH HOLD", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Throttle Arm", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT THROTTLE ARM", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Vertical Hold", "bool", SIMCONNECT_DATATYPE_INT32);
+        "AUTOPILOT VERTICAL HOLD", "bool", SIMCONNECT_DATATYPE_INT32);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Heading Lock Dir", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
+        "AUTOPILOT HEADING LOCK DIR", "degrees", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Altitude Lock Var", "feet", SIMCONNECT_DATATYPE_FLOAT64);
+        "AUTOPILOT ALTITUDE LOCK VAR", "feet", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Airspeed Hold Var", "knots", SIMCONNECT_DATATYPE_FLOAT64);
+        "AUTOPILOT AIRSPEED HOLD VAR", "knots", SIMCONNECT_DATATYPE_FLOAT64);
     hr = SimConnect_AddToDataDefinition(hSimConnect, DEFINITION_AUTOPILOT_STATE, 
-        "Autopilot Vertical Hold Var", "feet per minute", SIMCONNECT_DATATYPE_FLOAT64);
+        "AUTOPILOT VERTICAL HOLD VAR", "feet per minute", SIMCONNECT_DATATYPE_FLOAT64);
     
     if (FAILED(hr)) {
         std::cerr << "Failed to add autopilot state data definition: 0x" << std::hex << hr << std::endl;
@@ -1079,7 +1127,7 @@ bool SimConnectWrapper::Impl::initializeEventMappings() {
     HRESULT hr;
     
     // ===== AUTOPILOT EVENTS =====
-    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_AUTOPILOT_MASTER, "AUTOPILOT_ON");
+    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_AUTOPILOT_MASTER, "AP_MASTER");
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_AUTOPILOT_HEADING_HOLD, "AP_HDG_HOLD");
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_AUTOPILOT_ALTITUDE_HOLD, "AP_ALT_HOLD");
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_AUTOPILOT_AIRSPEED_HOLD, "AP_AIRSPEED_HOLD");
@@ -1122,8 +1170,8 @@ bool SimConnectWrapper::Impl::initializeEventMappings() {
     // ===== BRAKE EVENTS =====
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_PARKING_BRAKES, "PARKING_BRAKES");
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_BRAKES, "BRAKES");
-    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_BRAKES_LEFT, "BRAKES_LEFT");
-    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_BRAKES_RIGHT, "BRAKES_RIGHT");
+    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_BRAKES_LEFT, "AXIS_LEFT_BRAKE_SET");
+    hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_BRAKES_RIGHT, "AXIS_RIGHT_BRAKE_SET");
     
     // ===== ENGINE EVENTS =====
     hr = SimConnect_MapClientEventToSimEvent(hSimConnect, EVENT_MIXTURE_SET, "MIXTURE_SET");
@@ -1323,3 +1371,5 @@ bool SimConnectWrapper::Impl::validateElectricalData(const SimConnectAircraftSta
 }
 
 } // namespace AICopilot
+
+#endif // AICOPILOT_HAVE_SIMCONNECT

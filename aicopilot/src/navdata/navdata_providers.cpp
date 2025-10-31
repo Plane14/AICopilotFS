@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#ifdef USE_MSFS2024_SDK
+#ifdef AICOPILOT_HAVE_SIMCONNECT
 #include <windows.h>
 #include <SimConnect.h>
 #endif
@@ -398,7 +398,7 @@ SimConnectNavdataProvider::~SimConnectNavdataProvider() {
 }
 
 bool SimConnectNavdataProvider::initialize() {
-#ifdef USE_MSFS2024_SDK
+#ifdef AICOPILOT_HAVE_SIMCONNECT
     if (!pImpl->hSimConnect) {
         // Try to create our own SimConnect connection
         HRESULT hr = SimConnect_Open((HANDLE*)&pImpl->hSimConnect, 
@@ -434,7 +434,7 @@ bool SimConnectNavdataProvider::initialize() {
 }
 
 void SimConnectNavdataProvider::shutdown() {
-#ifdef USE_MSFS2024_SDK
+#ifdef AICOPILOT_HAVE_SIMCONNECT
     if (pImpl->hSimConnect && pImpl->ownHandle) {
         SimConnect_Close((HANDLE)pImpl->hSimConnect);
         pImpl->hSimConnect = nullptr;

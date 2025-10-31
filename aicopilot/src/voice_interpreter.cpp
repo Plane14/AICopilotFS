@@ -368,9 +368,7 @@ std::vector<std::string> AmbiguityResolver::resolveWaypointAmbiguity(
     }
 
     return candidates;
-// ============================================================================
-// VoiceInterpreter Implementation
-// ============================================================================
+}
 
 VoiceInterpreter::VoiceInterpreter() {
     command_mapper_ = std::make_unique<CommandMapper>();

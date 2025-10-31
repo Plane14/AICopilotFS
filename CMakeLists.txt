@@ -18,6 +18,7 @@ option(BUILD_TESTS "Build unit tests" OFF)
 option(USE_MSFS_2024_SDK "Build with MSFS 2024 SDK" ON)
 option(USE_P3D_V6_SDK "Build with Prepar3D v6 SDK" OFF)
 option(SUPPORT_BOTH_SDKS "Build with support for both SDKs (runtime detection)" OFF)
+option(BUILD_WITHOUT_SIMCONNECT "Build without SimConnect SDK (stub mode)" OFF)
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -132,11 +133,15 @@ if(USE_P3D_V6_SDK)
 endif()
 
 # Check if at least one SDK was found
-if(NOT SIMCONNECT_FOUND)
+if(BUILD_WITHOUT_SIMCONNECT)
+    message(STATUS "Building without SimConnect SDK (stub mode)")
+    set(SIMCONNECT_FOUND TRUE)
+elseif(NOT SIMCONNECT_FOUND)
     message(FATAL_ERROR "No SimConnect SDK found! Please:\n"
                         "  1. Install MSFS 2024 SDK to: ${MSFS_2024_SDK_BASE}\n"
                         "  2. OR Install Prepar3D v6 SDK to: ${P3D_V6_SDK_BASE}\n"
-                        "  3. OR set USE_MSFS_2024_SDK or USE_P3D_V6_SDK options accordingly")
+                        "  3. OR set USE_MSFS_2024_SDK or USE_P3D_V6_SDK options accordingly\n"
+                        "  4. OR set BUILD_WITHOUT_SIMCONNECT=ON for stub mode")
 endif()
 
 # Add SimConnect include directories

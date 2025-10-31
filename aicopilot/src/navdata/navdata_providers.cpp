@@ -240,12 +240,12 @@ double headingFromRunwayIdent(const std::string& ident) {
     return heading;
 }
 
-void populateDefaultAirports(std::map<std::string, AirportInfo>& cache) {
+void populateDefaultAirports(std::map<std::string, AICopilot::AirportInfo>& cache) {
     for (const auto& record : defaultAirportDataset()) {
         if (cache.find(record.icao) != cache.end()) {
             continue;
         }
-        AirportInfo info;
+        AICopilot::AirportInfo info;
         info.icao = record.icao;
         info.iata.clear();
         info.name = record.name;
@@ -260,12 +260,12 @@ void populateDefaultAirports(std::map<std::string, AirportInfo>& cache) {
     }
 }
 
-void populateDefaultNavaids(std::map<std::string, NavaidInfo>& cache) {
+void populateDefaultNavaids(std::map<std::string, AICopilot::NavaidInfo>& cache) {
     for (const auto& record : defaultNavaidDataset()) {
         if (cache.find(record.id) != cache.end()) {
             continue;
         }
-        NavaidInfo info;
+        AICopilot::NavaidInfo info;
         info.id = record.id;
         info.name = record.name;
         info.type = record.type;
@@ -278,13 +278,13 @@ void populateDefaultNavaids(std::map<std::string, NavaidInfo>& cache) {
     }
 }
 
-AirportLayout buildLayoutFromAirport(const AirportInfo& info) {
-    AirportLayout layout;
+AICopilot::AirportLayout buildLayoutFromAirport(const AICopilot::AirportInfo& info) {
+    AICopilot::AirportLayout layout;
 
     const double length = info.longestRunway > 0 ? static_cast<double>(info.longestRunway) : 6000.0;
     const double width = std::clamp(length / 50.0, 75.0, 200.0);
 
-    Airport::LatLonAlt ref(info.position.latitude, info.position.longitude, info.position.altitude);
+    AICopilot::Airport::LatLonAlt ref(info.position.latitude, info.position.longitude, info.position.altitude);
     std::set<std::string> processed;
     auto addRunway = [&](const std::string& ident) {
         const std::string trimmed = trim(ident);
@@ -292,16 +292,16 @@ AirportLayout buildLayoutFromAirport(const AirportInfo& info) {
             return;
         }
 
-        Airport::Runway runway;
+        AICopilot::Airport::Runway runway;
         runway.runway_ident = trimmed;
         runway.runway_number = parseRunwayIdent(trimmed).first;
         runway.heading_true = headingFromRunwayIdent(trimmed);
         runway.length_feet = length;
         runway.width_feet = width;
         runway.threshold_lat_lon = ref;
-        runway.surface_type = Airport::Runway::Surface::Asphalt;
-        runway.lighting_type = info.towered ? Airport::Runway::Lighting::FullHighIntensity
-                                            : Airport::Runway::Lighting::PartialMediumIntensity;
+        runway.surface_type = AICopilot::Airport::Runway::Surface::Asphalt;
+        runway.lighting_type = info.towered ? AICopilot::Airport::Runway::Lighting::FullHighIntensity
+                                            : AICopilot::Airport::Runway::Lighting::PartialMediumIntensity;
         runway.has_ils = true;
         runway.has_glideslope = true;
         runway.displaced_threshold_feet = 0;
@@ -318,26 +318,26 @@ AirportLayout buildLayoutFromAirport(const AirportInfo& info) {
         addRunway("27");
     }
 
-    Airport::TaxiwayNetwork network;
-    Airport::TaxiwayNode runwayNode(1, ref);
+    AICopilot::Airport::TaxiwayNetwork network;
+    AICopilot::Airport::TaxiwayNode runwayNode(1, ref);
     runwayNode.name = "Runway Hold";
-    runwayNode.type = Airport::TaxiwayNode::NodeType::RunwayHold;
+    runwayNode.type = AICopilot::Airport::TaxiwayNode::NodeType::RunwayHold;
     network.add_node(runwayNode);
 
-    Airport::TaxiwayNode apronNode(2, ref);
+    AICopilot::Airport::TaxiwayNode apronNode(2, ref);
     apronNode.name = "Apron";
-    apronNode.type = Airport::TaxiwayNode::NodeType::ParkingArea;
+    apronNode.type = AICopilot::Airport::TaxiwayNode::NodeType::ParkingArea;
     network.add_node(apronNode);
 
-    Airport::TaxiwayEdge edge(1, runwayNode.node_id, apronNode.node_id, length / 4.0);
-    edge.surface = Airport::TaxiwayEdge::Surface::Concrete;
+    AICopilot::Airport::TaxiwayEdge edge(1, runwayNode.node_id, apronNode.node_id, length / 4.0);
+    edge.surface = AICopilot::Airport::TaxiwayEdge::Surface::Concrete;
     edge.max_speed_knots = 15.0;
     network.add_edge(edge);
 
     layout.taxiwayNetwork = network;
 
-    Airport::ParkingPosition parking(1, ref);
-    parking.type = Airport::ParkingPosition::Type::Gate;
+    AICopilot::Airport::ParkingPosition parking(1, ref);
+    parking.type = AICopilot::Airport::ParkingPosition::Type::Gate;
     parking.gate_name = "G1";
     parking.has_jetway = info.towered;
     parking.has_fueling = true;

@@ -157,27 +157,52 @@ endif()
 option(ENABLE_OLLAMA "Enable Ollama AI integration (requires CURL and jsoncpp)" OFF)
 
 if(ENABLE_OLLAMA)
-    find_package(CURL)
-    find_package(PkgConfig)
-    if(PkgConfig_FOUND)
+    # Try to find CURL; if not present, we'll fall back to the stub implementation
+    find_package(CURL QUIET)
+    # Try to locate jsoncpp via find_package first, then fall back to pkg-config
+    find_package(JSONCPP QUIET)
+    find_package(PkgConfig QUIET)
+    if(NOT JSONCPP_FOUND AND PkgConfig_FOUND)
         pkg_check_modules(JSONCPP jsoncpp)
     endif()
-    
-    if(CURL_FOUND AND JSONCPP_FOUND)
+
+    if(CURL_FOUND AND (JSONCPP_FOUND OR DEFINED JSONCPP_LIBRARIES))
         message(STATUS "Ollama integration enabled")
         add_definitions(-DENABLE_OLLAMA)
         set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_impl.cpp)
         set(OLLAMA_HEADERS aicopilot/include/ollama_client.h)
-        set(OLLAMA_LIBRARIES ${CURL_LIBRARIES} ${JSONCPP_LIBRARIES})
-        include_directories(${JSONCPP_INCLUDE_DIRS})
+        if(JSONCPP_FOUND)
+            set(OLLAMA_LIBRARIES ${CURL_LIBRARIES} ${JSONCPP_LIBRARIES})
+            include_directories(${JSONCPP_INCLUDE_DIRS})
+        else()
+            # pkg-config variables
+            set(OLLAMA_LIBRARIES ${CURL_LIBRARIES} ${JSONCPP_LIBRARIES})
+            include_directories(${JSONCPP_INCLUDE_DIRS})
+        endif()
     else()
-        message(WARNING "Ollama integration requires CURL and jsoncpp. Disabling Ollama support.")
+        message(WARNING "Ollama integration requires CURL and jsoncpp. Falling back to stub implementation.")
         set(ENABLE_OLLAMA OFF)
         set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_stub.cpp)
     endif()
 else()
     message(STATUS "Ollama integration disabled (use -DENABLE_OLLAMA=ON to enable)")
     set(OLLAMA_SOURCES aicopilot/src/atc/ollama_client_stub.cpp)
+endif()
+
+# Optional GDAL-based terrain loader
+option(ENABLE_GDAL "Enable GDAL-backed terrain loader (requires GDAL)" OFF)
+
+if(ENABLE_GDAL)
+    find_package(GDAL)
+    if(GDAL_FOUND)
+        message(STATUS "GDAL integration enabled")
+        add_definitions(-DENABLE_GDAL)
+        set(GDAL_LIBRARIES ${GDAL_LIBRARY})
+        include_directories(${GDAL_INCLUDE_DIRS})
+    else()
+        message(WARNING "GDAL not found. Disabling GDAL support.")
+        set(ENABLE_GDAL OFF)
+    endif()
 endif()
 
 # Source files
@@ -251,6 +276,10 @@ target_link_libraries(aicopilot
     ${SIMCONNECT_LIBRARIES}
 )
 
+if(ENABLE_GDAL AND GDAL_FOUND)
+    target_link_libraries(aicopilot PRIVATE ${GDAL_LIBRARIES})
+endif()
+
 target_include_directories(aicopilot PRIVATE 
     ${SIMCONNECT_INCLUDE_DIRS}
 )
@@ -275,6 +304,10 @@ if(BUILD_EXAMPLES)
     
     add_executable(aicopilot_advanced aicopilot/examples/advanced_example.cpp)
     target_link_libraries(aicopilot_advanced aicopilot)
+    
+    # Small runtime harness to validate Terrain CSV loader without running full test-suite
+    add_executable(terrain_csv_harness aicopilot/tools/terrain_csv_harness.cpp)
+    target_link_libraries(terrain_csv_harness PRIVATE aicopilot)
 endif()
 
 # Build tests

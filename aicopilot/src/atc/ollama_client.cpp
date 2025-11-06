@@ -7,7 +7,7 @@
 * (at your option) any later version.
 *****************************************************************************/
 
-#include "../include/ollama_client.h"
+#include "ollama_client.h"
 #include <iostream>
 #include <sstream>
 #include <regex>

@@ -52,6 +52,10 @@
 #include <memory>
 #include <queue>
 #include <functional>
+#ifdef AICOPILOT_HAVE_SIMCONNECT
+#include <Windows.h>
+#include "SimConnect.h"
+#endif
 
 namespace AICopilot {
 
@@ -239,15 +243,34 @@ public:
             state_ = ConnectionState::CONNECTING;
             metrics_.lastConnectAttempt = std::chrono::system_clock::now();
 
-            // TODO: Actual SimConnect connection code would go here
-            // For now, simulate successful connection
+#ifdef AICOPILOT_HAVE_SIMCONNECT
+            // Try to open a lightweight SimConnect session to validate connectivity.
+            HANDLE hSim = nullptr;
+            HRESULT hr = SimConnect_Open(&hSim, "AICopilotErrorHandler", NULL, 0, 0, 0);
+            if (hr == S_OK && hSim != nullptr) {
+                // Close immediately; this module does not retain the handle.
+                SimConnect_Close(hSim);
+                state_ = ConnectionState::CONNECTED;
+                metrics_.lastSuccessfulConnection = std::chrono::system_clock::now();
+                metrics_.successfulConnections++;
+                metrics_.reconnectAttempts = 0;
+                logger_.log(ErrorCode::UNKNOWN_ERROR, "Connected to simulator successfully (SimConnect)");
+                return true;
+            } else {
+                state_ = ConnectionState::FAILED;
+                metrics_.failureCount++;
+                throw SimConnectException(ErrorCode::SIMCONNECT_CONNECTION_FAILED,
+                    "SimConnect_Open failed (HRESULT=" + std::to_string(hr) + ")");
+            }
+#else
+            // No SimConnect SDK available in this build -- keep simulated behavior for stub mode
             state_ = ConnectionState::CONNECTED;
             metrics_.lastSuccessfulConnection = std::chrono::system_clock::now();
             metrics_.successfulConnections++;
             metrics_.reconnectAttempts = 0;
-
-            logger_.log(ErrorCode::UNKNOWN_ERROR, "Connected to simulator successfully");
+            logger_.log(ErrorCode::UNKNOWN_ERROR, "Connected to simulator successfully (stub mode)");
             return true;
+#endif
 
         } catch (const std::exception& e) {
             state_ = ConnectionState::FAILED;
